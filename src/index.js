@@ -418,7 +418,7 @@ function setScheduleQOTD(expression) {
 client.once(Events.ClientReady, async (readyClient) => {
     console.log(`Logged in as ${readyClient.user.tag}`);
     
-    console.log(`Bot je online jako ${readyClient.user.tag}`);
+    //fetchPastDMs('SOME_USER_ID');
 
     const rest = new REST({ version: '10' }).setToken(token);
 
