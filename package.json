@@ -1,0 +1,31 @@
+{
+  "name": "kiara-bot",
+  "version": "1.0.0",
+  "description": "Discord bot made for private purpose",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Davihan11/Kiara-bot.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Davihan11/Kiara-bot/issues"
+  },
+  "homepage": "https://github.com/Davihan11/Kiara-bot#readme",
+  "dependencies": {
+    "axios": "^1.19.0",
+    "discord.js": "^14.27.0",
+    "dotenv": "^17.4.2",
+    "node-cron": "^4.6.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.8.0"
+  }
+}
