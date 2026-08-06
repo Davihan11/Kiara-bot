@@ -27,6 +27,10 @@ const MEMORY_FILE_PATH = path.join(__dirname, '..', 'data', 'memory.json');
 
 const QOTD_API_URL = 'https://api.harys.is-a.dev/v1/qotd';
 
+const PRIORITY_QOTDS = [
+    'What is your biggest addiction?'
+];
+
 axios.defaults.headers.common['User-Agent'] = `DiscordBot/Kiara-bot 1.0 (by ${BOT_EMAIL})`;
 const client = new Client({
     intents: [
@@ -303,6 +307,14 @@ function setScheduleCat(expression) {
 
 async function fetchQOTDData() {
     try {
+        if (PRIORITY_QOTDS.length > 0) {
+            const question = PRIORITY_QOTDS.shift();
+            console.log('Selected from priority queue');
+            return {
+                question: question
+            };
+        }
+
         const useIcebreakers = Math.random() < 0.5;
 
         if (useIcebreakers) {
