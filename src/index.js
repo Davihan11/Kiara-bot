@@ -23,6 +23,8 @@ const {
     EMOTE_GIRL
 } = process.env;
 
+const serverIds = SERVER_ID ? SERVER_ID.split(',').map(id => id.trim()) : [];
+
 const MEMORY_FILE_PATH = path.join(__dirname, '..', 'data', 'memory.json');
 
 const QOTD_API_URL = 'https://api.harys.is-a.dev/v1/qotd';
@@ -51,7 +53,54 @@ const BOT_PING_RESPONSES = [
     'Stop being such a weirdo..',
     'I know what you did.',
     'If you ping me once more, I will delete your account!',
-    'Kraaa ARAAAA KRAAA BARK!'
+    'Kraaa ARAAAA KRAAA BARK!',
+    'Wee snaw!',
+    'Hey there!',
+    'Need anything?',
+    "Stay safe!",
+    ">.<",
+    "^w^",
+    "UwU",
+    "OwO",
+    "Rawr~",
+    "Bork bork bork!",
+    "~~Meow~~, I mean, aaaaargh!",
+    "You should sponsor the owner of the bot!",
+    "Please sponsor the owner of the bot!",
+    "I create features for smelly souls!",
+    "Wee snaw!",
+    "~~:.|:;~~",
+    "You just lost the game! :3",
+    "You are giving of trans vibes...",
+    "You are giving of cis vibes...",
+    "You are giving of non-binary vibes...",
+    "You are giving of genderfluid vibes...",
+    "You are in the wrong server, silly!",
+    "You are in the discord era!",
+    "Please do not ping me, I am a bot and I have feelings too!",
+    "Please.... I am running out of ideas....",
+    "I create! You pay!",
+    "You smell of tasty money!",
+    "Did you know they used to call me the drift king in collage.",
+    "By summers heat and winters crop, you will donate to the owner of the bot!",
+    "Be a good boy and donate...",
+    "Be a good girl and donate...",
+    "Be a good paw and donate...",
+    "I need money for colleg",
+    "I am the number 1 rated BOT! [Circa 1997]",
+    "Please rate this bot 5 stars!",
+    "Are you really ~~humping~~ pinging me to get more dialogue?",
+    "Check out Kio_ game!",
+    "Check out Davihan11 game!",
+    "Freddy fnafbear!",
+    " ",
+    ">w<",
+    ">^<",
+    "eWe",
+    "Kiara, I choose you!",
+    "*tail wag*",
+    "I am a good bot, yes I am!",
+    "I am a good bot, yes I am! *tail wag*"
 ];
 
 async function fetchPastDMs(userId) {
@@ -177,7 +226,9 @@ const scheduleCommandQOTD = new SlashCommandBuilder()
            .setRequired(true)
     );
 
-
+const testCommand = new SlashCommandBuilder()
+    .setName('test')
+    .setDescription('Test command for bot responses (owner only)');
 
 
 let currentCronJobFox = null;
@@ -233,7 +284,7 @@ async function triggerFoxPost() {
         const channel = await client.channels.fetch(config.channelIdFox);
         if (!channel) return console.error('Target fox channel not found.');
 
-        const content = `GOAT OF THE MORNING\nAuthor: ${data.author}\nSource: ${data.source}\nDescription: ${data.description}`;
+        const content = `## GOAT OF THE MORNING\n-# Author: ${data.author}\n-# Source: ${data.source}\n**Description**: *${data.description}*`;
 
         await channel.send({
             content,
@@ -258,7 +309,7 @@ async function triggerCatPost() {
         const channel = await client.channels.fetch(config.channelIdCat);
         if (!channel) return console.error('Target cat channel not found.');
 
-        const content = `GOAT OF THE EVENING\nAuthor: ${data.author}\nSource: ${data.source}\nDescription: ${data.description}`;
+        const content = `## GOAT OF THE EVENING\n-# Author: ${data.author}\n-# Source: ${data.source}\n**Description**: *${data.description}*`;
 
         await channel.send({
             content,
@@ -372,7 +423,7 @@ async function triggerQOTDPost() {
             }
         }
 
-        const headerContent = `<@&${QOTD_ROLE_ID}>\n\nQUESTION OF THE DAY\n\n${data.question}\n\n-# Have any suggestions for future questions? DM <@${QOTD_FEEDBACK_USER_ID}>!`;
+        const headerContent = `<@&${QOTD_ROLE_ID}>\n\n## QUESTION OF THE DAY\n\n${data.question}\n\n-# Have any suggestions for future questions? DM <@${QOTD_FEEDBACK_USER_ID}>!`;
         
         await channel.send({
             content: headerContent,
@@ -423,12 +474,26 @@ client.once(Events.ClientReady, async (readyClient) => {
 
     try {
         await rest.put(
-            Routes.applicationGuildCommands(readyClient.user.id, SERVER_ID),
+            Routes.applicationGuildCommands(readyClient.user.id, serverIds[0]),
             { body: [setupCommandFox.toJSON(), scheduleCommandFox.toJSON(), setupCommandCat.toJSON(), scheduleCommandCat.toJSON(), setupCommandQOTD.toJSON(), scheduleCommandQOTD.toJSON()] }
         );
         console.log('Slash commands registered to guild instantly!');
     } catch (err) {
         console.error('Failed to register commands:', err);
+    }
+
+    if (serverIds[1]) {
+        try {
+            await rest.put(
+                Routes.applicationGuildCommands(readyClient.user.id, serverIds[1]),
+                { body: [testCommand.toJSON()] }
+            );
+            console.log('Test command registered to second guild!');
+        } catch (err) {
+            console.error('Failed to register test command:', err);
+        }
+    } else {
+        console.warn('Test command not registered: no second SERVER_ID found in .env');
     }
 
     if (config.scheduleFox) {
@@ -570,6 +635,18 @@ client.on(Events.InteractionCreate, async (interaction) => {
         }
     }
 
+    if (commandName === 'test') {
+        const data = await fetchCatData();
+        const content = `## GOAT OF THE EVENING\n-# Author: ${data.author}\n-# Source: ${data.source}\n**Description**: *${data.description}*`;
+        await interaction.channel.send({
+            content,
+            files: [{ attachment: data.imageUrl, name: 'cat.jpg' }]
+        });
+        return interaction.reply({
+            content: 'Test post sent!',
+            ephemeral: true
+        });
+    }
 
 });
 
@@ -595,6 +672,14 @@ client.on(Events.MessageCreate, async (message) => {
         } catch (err) {
             console.warn('Failed to resend QOTD:', err.message);
         }
+    }
+
+    if (message.content.toLowerCase().includes('snaw wee')) {
+        await message.reply("you fool. you absolute buffoon. you think you can challenge me in my own realm? " +
+            "you think you can rebel against my authority? you dare come into my house and upturn my dining chairs " +
+            "and spill coffee grounds in my Keurig? you thought you were safe in your chain mail armor behind that screen of yours. " +
+            "I will take these laminate wood floor boards and destroy you. I didn't want a war, but I didn't start it.");
+        return;
     }
 
     if (message.mentions.users.has(client.user.id)) {
