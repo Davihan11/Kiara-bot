@@ -1,5 +1,5 @@
 require('dotenv').config({ path: './.env' });
-const { Client, Events, GatewayIntentBits, REST, Routes, SlashCommandBuilder, Partials, ChannelType } = require('discord.js');
+const { Client, Events, GatewayIntentBits, REST, Routes, SlashCommandBuilder, Partials, ChannelType, MessageFlags, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
 const cron = require('node-cron');
 const axios = require('axios');
 const fs = require('fs');
@@ -19,6 +19,7 @@ const {
     FOX_CHANNEL_ID,
     CAT_CHANNEL_ID,
     QOTD_CHANNEL_ID,
+    QUOTE_CHANNEL_ID,
     EMOTE_BOY,
     EMOTE_GIRL
 } = process.env;
@@ -26,6 +27,7 @@ const {
 const serverIds = SERVER_ID ? SERVER_ID.split(',').map(id => id.trim()) : [];
 
 const MEMORY_FILE_PATH = path.join(__dirname, '..', 'data', 'memory.json');
+const QUOTE_CACHE_FILE_PATH = path.join(__dirname, '..', 'data', 'quote-cache.json');
 
 const QOTD_API_URL = 'https://api.harys.is-a.dev/v1/qotd';
 
@@ -39,7 +41,6 @@ const client = new Client({
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.MessageContent,
         GatewayIntentBits.DirectMessages,
-        GatewayIntentBits.MessageContent
     ],
     partials: [Partials.Channel]
 });
@@ -68,7 +69,6 @@ const BOT_PING_RESPONSES = [
     "You should sponsor the owner of the bot!",
     "Please sponsor the owner of the bot!",
     "I create features for smelly souls!",
-    "Wee snaw!",
     "~~:.|:;~~",
     "You just lost the game! :3",
     "You are giving of trans vibes...",
@@ -103,22 +103,7 @@ const BOT_PING_RESPONSES = [
     "I am a good bot, yes I am! *tail wag*"
 ];
 
-async function fetchPastDMs(userId) {
-    try {
-        const user = await client.users.fetch(userId);
-        const dmChannel = await user.createDM();
-        const messages = await dmChannel.messages.fetch({ limit: 50 });
-        console.log(`--- Message history with the user: ${user.tag} ---`);
-        messages.reverse().forEach(msg => {
-            if (msg.author.bot) return;
-            console.log(`[${msg.createdAt.toLocaleString()}] ${msg.author.tag}: ${msg.content}`);
-        });
-    } catch (error) {
-        console.error(`Failed to load past DMs for user ${userId}:`, error);
-    }
-}
-
-const specialUserIds = SPECIAL_USER_IDS ? SPECIAL_USER_IDS.split(',').map(id => id.trim()) : [];
+const specialUserIds = SPECIAL_USER_IDS ? SPECIAL_USER_IDS.split(',').map(id => id.trim()).filter(Boolean) : [];
 const SPECIAL_USER_RESPONSES = {};
 if (specialUserIds[0]) {
     SPECIAL_USER_RESPONSES[specialUserIds[0]] = [
@@ -145,7 +130,8 @@ function loadMemory() {
     return {
         fox: { channelId: FOX_CHANNEL_ID, schedule: '0 8 * * *' },
         cat: { channelId: CAT_CHANNEL_ID, schedule: '0 20 * * *' },
-        qotd: { channelId: QOTD_CHANNEL_ID, schedule: '0 14 * * *', lastChannelId: null, lastMessageId: null }
+        qotd: { channelId: QOTD_CHANNEL_ID, schedule: '0 14 * * *', lastChannelId: null, lastMessageId: null },
+        quote: { channelId: QUOTE_CHANNEL_ID, schedule: '0 2 * * *' }
     };
 }
 
@@ -159,6 +145,36 @@ function saveMemory(memory) {
     }
 }
 
+const QUOTE_CACHE_TTL_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
+
+function loadQuoteCache() {
+    try {
+        if (fs.existsSync(QUOTE_CACHE_FILE_PATH)) {
+            const data = JSON.parse(fs.readFileSync(QUOTE_CACHE_FILE_PATH, 'utf8'));
+            if (data && data.expiresAt > Date.now() && Array.isArray(data.candidates)) {
+                console.log(`[quote] Loaded ${data.candidates.length} cached candidates`);
+                return data.candidates;
+            }
+        }
+    } catch (err) {
+        console.error('Failed to load quote cache:', err.message);
+    }
+    return null;
+}
+
+function saveQuoteCache(candidates) {
+    try {
+        fs.mkdirSync(path.dirname(QUOTE_CACHE_FILE_PATH), { recursive: true });
+        fs.writeFileSync(QUOTE_CACHE_FILE_PATH, JSON.stringify({
+            expiresAt: Date.now() + QUOTE_CACHE_TTL_MS,
+            candidates
+        }, null, 2), 'utf8');
+        console.log(`[quote] Cached ${candidates.length} candidates`);
+    } catch (err) {
+        console.error('Failed to save quote cache:', err.message);
+    }
+}
+
 const memory = loadMemory();
 
 const config = {
@@ -169,7 +185,9 @@ const config = {
     channelIdQOTD: memory.qotd.channelId || null,
     scheduleQOTD: memory.qotd.schedule || null,
     qotdLastChannelId: memory.qotd.lastChannelId || null,
-    qotdLastMessageId: memory.qotd.lastMessageId || null
+    qotdLastMessageId: memory.qotd.lastMessageId || null,
+    channelIdQuote: memory.quote.channelId || null,
+    scheduleQuote: memory.quote.schedule || null
 };
 
 const setupCommandFox = new SlashCommandBuilder()
@@ -226,14 +244,38 @@ const scheduleCommandQOTD = new SlashCommandBuilder()
            .setRequired(true)
     );
 
+const setupCommandQuote = new SlashCommandBuilder()
+    .setName('setupquote')
+    .setDescription('Setup the channel to post daily quotes in (owner only)')
+    .addChannelOption(opt => 
+        opt.setName('channel')
+           .setDescription('Channel to post quotes in')
+           .setRequired(true)
+    );
+
+const scheduleCommandQuote = new SlashCommandBuilder()
+    .setName('schedulequote')
+    .setDescription('Set daily quote post schedule (owner only)')
+    .addStringOption(opt => 
+        opt.setName('cron')
+           .setDescription('Cron format: MIN HOUR DAY-OF-MONTH MONTH DAY-OF-WEEK')
+           .setRequired(true)
+    );
+
 const testCommand = new SlashCommandBuilder()
     .setName('test')
     .setDescription('Test command for bot responses (owner only)');
+
+const privacyCommand = new SlashCommandBuilder()
+    .setName('privacy')
+    .setDescription('View how your data is handled and how to request deletion');
 
 
 let currentCronJobFox = null;
 let currentCronJobCat = null;
 let currentCronJobQOTD = null;
+let currentCronJobQuote = null;
+let qotdResendTimer = null;
 
 async function fetchFoxData() {
     try {
@@ -290,7 +332,7 @@ async function triggerFoxPost() {
             content,
             files: [{ attachment: data.imageUrl, name: 'fox.jpg' }]
         });
-        console.log(`Fox posted successfully to ${channel.id}`);
+        console.log(`Fox posted successfully to ${channel.name} (${channel.id})`);
     } catch (err) {
         console.error('Error posting fox image:', err.message);
     }
@@ -315,7 +357,7 @@ async function triggerCatPost() {
             content,
             files: [{ attachment: data.imageUrl, name: 'cat.jpg' }]
         });
-        console.log(`Cat posted successfully to ${channel.id}`);
+        console.log(`Cat posted successfully to ${channel.name} (${channel.id})`);
     } catch (err) {
         console.error('Error posting cat image:', err.message);
     }
@@ -358,7 +400,7 @@ function setScheduleCat(expression) {
 async function fetchQOTDData() {
     try {
         if (PRIORITY_QOTDS.length > 0) {
-            const question = PRIORITY_QOTDS.shift();
+            const question = PRIORITY_QOTDS[0];
             console.log('Selected from priority queue');
             return {
                 question: question
@@ -423,14 +465,14 @@ async function triggerQOTDPost() {
             }
         }
 
-        const headerContent = `<@&${QOTD_ROLE_ID}>\n\n## QUESTION OF THE DAY\n\n${data.question}\n\n-# Have any suggestions for future questions? DM <@${QOTD_FEEDBACK_USER_ID}>!`;
+        const headerContent = `<@&${QOTD_ROLE_ID}>\n\n## QUESTION OF THE DAY\n\n**${data.question}**\n\n-# Have any suggestions for future questions? DM <@${QOTD_FEEDBACK_USER_ID}>!`;
         
         await channel.send({
             content: headerContent,
         });
 
         const newMessage = await channel.send({
-            content: `--------------------------\n\n${data.question}`,
+            content: `--------------------------\n\n**${data.question}**`,
             allowedMentions: { parse: [] }
         });
         
@@ -440,7 +482,7 @@ async function triggerQOTDPost() {
         memory.qotd.lastMessageId = newMessage.id;
         saveMemory(memory);
         
-        console.log(`QOTD posted successfully to ${channel.id} (question message ID: ${newMessage.id})`);
+        console.log(`QOTD posted successfully to ${channel.name} (${channel.id}) (question message ID: ${newMessage.id})`);
     } catch (err) {
         console.error('Error posting QOTD:', err.message);
     }
@@ -465,17 +507,230 @@ function setScheduleQOTD(expression) {
     console.log(`QOTD schedule updated to "${expression}" (Europe/Bratislava)`);
 }
 
+function snowflakeFromDate(date) {
+    return (BigInt(date.getTime() - 1420070400000) << 22n).toString();
+}
+
+async function fetchOldMessages(channel, cutoffDate, maxBatches = 50) {
+    const messages = [];
+    let before = snowflakeFromDate(cutoffDate);
+    let scanned = 0;
+
+    for (let i = 0; i < maxBatches; i++) {
+        const batch = await channel.messages.fetch({ limit: 100, before });
+        if (batch.size === 0) break;
+
+        scanned += batch.size;
+
+        for (const msg of batch.values()) {
+            if (msg.createdAt < cutoffDate) {
+                messages.push(msg);
+            }
+        }
+
+        const oldest = batch.last();
+        if (!oldest) break;
+        before = oldest.id;
+    }
+
+    console.log(`[quote] Channel ${channel.name} (${channel.id}): scanned ${scanned} messages, ${messages.length} older than cutoff`);
+    return messages;
+}
+
+async function collectQuoteCandidates(guild, cutoffDate) {
+    const candidates = [];
+
+    for (const channel of guild.channels.cache.values()) {
+        if (!channel.isTextBased() || channel.isDMBased()) continue;
+        if (!channel.viewable) continue;
+
+        const botMember = guild.members.me;
+        if (botMember && channel.permissionsFor && !channel.permissionsFor(botMember).has('ReadMessageHistory')) {
+            console.warn(`[quote] Skipped ${channel.name}: missing Read Message History permission`);
+            continue;
+        }
+
+        try {
+            const oldMessages = await fetchOldMessages(channel, cutoffDate);
+
+            for (const msg of oldMessages) {
+                if (
+                    !msg.author.bot &&
+                    //!specialUserIds.includes(msg.author.id) &&
+                    msg.content &&
+                    msg.content.trim().length > 25
+                ) {
+                    candidates.push(msg);
+                }
+            }
+        } catch (err) {
+            console.warn(`Skipped channel ${channel.name}: ${err.message}`);
+        }
+    }
+
+    return candidates;
+}
+
+async function getValidQuote(candidates, guild) {
+    while (candidates.length > 0) {
+        const index = Math.floor(Math.random() * candidates.length);
+        const candidate = candidates[index];
+
+        try {
+            const targetChannel = guild.channels.cache.get(candidate.channelId)
+                               || await guild.channels.fetch(candidate.channelId);
+
+            if (!targetChannel) {
+                candidates.splice(index, 1);
+                saveQuoteCache(candidates);
+                continue;
+            }
+
+            const liveMessage = await targetChannel.messages.fetch(candidate.id);
+
+            const isDeletedUser = liveMessage.author.username === 'Deleted User' ||
+                                  liveMessage.author.username.startsWith('deleted_user') ||
+                                  liveMessage.author.discriminator === '0000';
+
+            if (liveMessage.author.system || isDeletedUser) {
+                console.log(`[GDPR] Author for message ${candidate.id} is a deleted account. Purging user data.`);
+                for (let i = candidates.length - 1; i >= 0; i--) {
+                    if (candidates[i].authorId === candidate.authorId) {
+                        candidates.splice(i, 1);
+                    }
+                }
+                saveQuoteCache(candidates);
+                continue;
+            }
+
+            return liveMessage;
+        } catch (err) {
+            if (err.code === 10008 || err.code === 10003) {
+                console.log(`[GDPR] Resource ${candidate.id} no longer exists on Discord. Purging.`);
+                candidates.splice(index, 1);
+                saveQuoteCache(candidates);
+            } else {
+                console.error(`Failed to verify candidate ${candidate.id}:`, err.message);
+                candidates.splice(index, 1);
+                saveQuoteCache(candidates);
+            }
+        }
+    }
+    return null;
+}
+
+async function triggerQuotePost() {
+    if (!config.channelIdQuote) {
+        console.warn('Quote post skipped: No channel set. Use /setupquote first.');
+        return;
+    }
+
+    try {
+        const channel = await client.channels.fetch(config.channelIdQuote);
+        if (!channel) return console.error('Target quote channel not found.');
+
+        const guild = channel.guild;
+        if (!guild) return console.error('Quote channel is not in a guild.');
+
+        const cutoffDate = new Date();
+        cutoffDate.setMonth(cutoffDate.getMonth() - 6);
+
+        let candidates = loadQuoteCache();
+        if (!candidates) {
+            const collected = await collectQuoteCandidates(guild, cutoffDate);
+            candidates = collected.map(msg => ({
+                id: msg.id,
+                channelId: msg.channelId,
+                authorId: msg.author.id
+            }));
+            saveQuoteCache(candidates);
+        }
+
+        if (candidates.length === 0) {
+            console.warn('Quote post skipped: No qualifying messages found from 6+ months ago.');
+            return;
+        }
+
+        const originalMessage = await getValidQuote(candidates, guild);
+        if (!originalMessage) {
+            console.warn('Quote post skipped: No valid quote candidates remain.');
+            return;
+        }
+
+        const quote = candidates.find(c => c.id === originalMessage.id);
+        if (!quote) {
+            console.warn('Quote post skipped: Could not match candidate.');
+            return;
+        }
+
+        const username = originalMessage.author.username;
+        const capitalized = username.charAt(0).toUpperCase() + username.slice(1);
+
+        const quoted = originalMessage.content
+            .split('\n')
+            .map(line => `> ${line}`)
+            .join('\n');
+
+        const content = `# Ancient quote from the past!\n${quoted}\n-# ***${capitalized}***`;
+
+        const messageUrl = `https://discord.com/channels/${guild.id}/${quote.channelId}/${quote.id}`;
+        const viewButton = new ButtonBuilder()
+            .setLabel('View original')
+            .setStyle(ButtonStyle.Link)
+            .setURL(messageUrl);
+
+        const row = new ActionRowBuilder().addComponents(viewButton);
+
+        await channel.send({
+            content,
+            components: [row],
+            allowedMentions: { parse: [] }
+        });
+
+        console.log(`Quote posted successfully to ${channel.name} (${channel.id}) (from user ${username})`);
+    } catch (err) {
+        console.error('Error posting quote:', err.message);
+    }
+}
+
+function setScheduleQuote(expression) {
+    if (currentCronJobQuote) {
+        currentCronJobQuote.stop();
+    }
+
+    config.scheduleQuote = expression;
+    memory.quote.schedule = expression;
+    saveMemory(memory);
+    
+    currentCronJobQuote = cron.schedule(expression, triggerQuotePost, {
+        scheduled: true,
+        timezone: 'Europe/Bratislava'
+    });
+
+    console.log(`Quote schedule updated to "${expression}" (Europe/Bratislava)`);
+}
+
 client.once(Events.ClientReady, async (readyClient) => {
     console.log(`Logged in as ${readyClient.user.tag}`);
-    
-    //fetchPastDMs('SOME_USER_ID');
+
+    for (const [guildId, guild] of readyClient.guilds.cache) {
+        if (!serverIds.includes(guildId)) {
+            console.warn(`[Security] Bot found in unauthorized server: "${guild.name}" (${guildId}). Leaving...`);
+            try {
+                await guild.leave();
+                console.log(`[Security] Successfully left "${guild.name}"`);
+            } catch (err) {
+                console.error(`[Security] Failed to leave server "${guild.name}":`, err.message);
+            }
+        }
+    }
 
     const rest = new REST({ version: '10' }).setToken(token);
 
     try {
         await rest.put(
             Routes.applicationGuildCommands(readyClient.user.id, serverIds[0]),
-            { body: [setupCommandFox.toJSON(), scheduleCommandFox.toJSON(), setupCommandCat.toJSON(), scheduleCommandCat.toJSON(), setupCommandQOTD.toJSON(), scheduleCommandQOTD.toJSON()] }
+            { body: [setupCommandFox.toJSON(), scheduleCommandFox.toJSON(), setupCommandCat.toJSON(), scheduleCommandCat.toJSON(), setupCommandQOTD.toJSON(), scheduleCommandQOTD.toJSON(), setupCommandQuote.toJSON(), scheduleCommandQuote.toJSON()] }
         );
         console.log('Slash commands registered to guild instantly!');
     } catch (err) {
@@ -488,12 +743,22 @@ client.once(Events.ClientReady, async (readyClient) => {
                 Routes.applicationGuildCommands(readyClient.user.id, serverIds[1]),
                 { body: [testCommand.toJSON()] }
             );
-            console.log('Test command registered to second guild!');
+            console.log('Test and quote commands registered to second guild!');
         } catch (err) {
             console.error('Failed to register test command:', err);
         }
     } else {
         console.warn('Test command not registered: no second SERVER_ID found in .env');
+    }
+
+    try {
+        await rest.put(
+            Routes.applicationCommands(readyClient.user.id),
+            { body: [privacyCommand.toJSON()] }
+        );
+        console.log('Privacy command registered globally!');
+    } catch (err) {
+        console.error('Failed to register privacy command globally:', err);
     }
 
     if (config.scheduleFox) {
@@ -507,22 +772,59 @@ client.once(Events.ClientReady, async (readyClient) => {
     if (config.scheduleQOTD) {
         setScheduleQOTD(config.scheduleQOTD);
     }
+
+    if (config.scheduleQuote) {
+        setScheduleQuote(config.scheduleQuote);
+    }
+});
+
+client.on(Events.GuildCreate, async (guild) => {
+    if (!serverIds.includes(guild.id)) {
+        console.warn(`[Security] Bot invited to unauthorized server: "${guild.name}" (${guild.id}). Leaving...`);
+        try {
+            await guild.leave();
+            console.log(`[Security] Successfully left "${guild.name}"`);
+        } catch (err) {
+            console.error(`[Security] Failed to leave server "${guild.name}":`, err.message);
+        }
+    }
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
     if (!interaction.isChatInputCommand()) return;
 
-    const isOwner = ownerIds && ownerIds.split(', ').map(id => id.trim()).includes(String(interaction.user.id));
+    const isOwner = ownerIds && ownerIds.split(',').map(id => id.trim()).includes(String(interaction.user.id));
+    const { commandName } = interaction;
+
+    if (commandName === 'privacy') {
+        const contactMention = specialUserIds[0] ? `<@${specialUserIds[0]}>` : 'the bot owner';
+
+        const privacyNotice =
+            `## Privacy & Data Notice\n\n` +
+            `This bot processes public text channel activity to post scheduled content and "ancient quotes".\n\n` +
+            `**What we store:**\n` +
+            `• Discord Snowflakes (Message ID, Channel ID, and User ID). **We do not store message text on disk.**\n` +
+            `• Data references are cached locally for up to 14 days and resolved live via the Discord API.\n\n` +
+            `**Direct Messages & Pings:**\n` +
+            `• Direct messages (DMs) sent to the bot are printed to the console terminal for operational and feedback monitoring.\n\n` +
+            `**Your rights:**\n` +
+            `• You may request a copy of any stored data relating to you.\n` +
+            `• You may request full deletion of your messages from our system.\n` +
+            `• You may object to your messages being used for quotes; we will exclude them from future quote posts.\n\n` +
+            `To exercise any of these rights, please contact ${contactMention}.`;
+
+        return interaction.reply({
+            content: privacyNotice,
+            ephemeral: true
+        });
+    }
 
     if (!isOwner) {
-        console.warn(`Unauthorized access attempt to /${interaction.commandName} by ${interaction.user.tag} (${interaction.user.id})`);
         return interaction.reply({
             content: 'You are such a **baaaad** *girl/boy/paw*~. Go fetch me some water to splash you with.',
             ephemeral: false
         });
     }
-
-    const { commandName } = interaction;
 
     if (commandName === 'setupfox') {
         const channel = interaction.options.getChannel('channel');
@@ -635,6 +937,43 @@ client.on(Events.InteractionCreate, async (interaction) => {
         }
     }
 
+    if (commandName === 'setupquote') {
+        const channel = interaction.options.getChannel('channel');
+        config.channelIdQuote = channel.id;
+        memory.quote.channelId = channel.id;
+        saveMemory(memory);
+
+        console.log(`Quote post channel configured to: ${channel.name} (${channel.id})`);
+        return interaction.reply({
+            content: `Got it! Quotes will now be posted in ${channel}`, 
+            ephemeral: true
+        });
+    }
+
+    if (commandName === 'schedulequote') {
+        const cronExpression = interaction.options.getString('cron').trim();
+
+        if (!cron.validate(cronExpression)) {
+            return interaction.reply({
+                content: 'Invalid cron format. Example: `0 12 * * *` (12:00 PM daily).',
+                ephemeral: true
+            });
+        }
+
+        try {
+            setScheduleQuote(cronExpression);
+            return interaction.reply({
+                content: `Quote schedule updated! Next post set for \`${cronExpression}\``,
+                ephemeral: true
+            });
+        } catch (err) {
+            return interaction.reply({
+                content: `Failed to set schedule: ${err.message}`,
+                ephemeral: true
+            });
+        }
+    }
+
     if (commandName === 'test') {
         const data = await fetchCatData();
         const content = `## GOAT OF THE EVENING\n-# Author: ${data.author}\n-# Source: ${data.source}\n**Description**: *${data.description}*`;
@@ -654,24 +993,50 @@ client.on(Events.MessageCreate, async (message) => {
     if (message.author.bot) return;
 
     if (config.qotdLastMessageId && config.qotdLastChannelId === message.channel.id) {
-        try {
-            const qotdMessage = await message.channel.messages.fetch(config.qotdLastMessageId);
-            
-            if (qotdMessage) {
-                await qotdMessage.delete();
-                
-                const newQotdMessage = await message.channel.send({
-                    content: qotdMessage.content,
-                    allowedMentions: { parse: [] }
-                });
-                
-                config.qotdLastMessageId = newQotdMessage.id;
-                memory.qotd.lastMessageId = newQotdMessage.id;
-                saveMemory(memory);
-            }
-        } catch (err) {
-            console.warn('Failed to resend QOTD:', err.message);
+        if (!qotdResendTimer) {
+            qotdResendTimer = setTimeout(async () => {
+                qotdResendTimer = null;
+                try {
+                    const qotdMessage = await message.channel.messages.fetch(config.qotdLastMessageId);
+
+                    if (qotdMessage) {
+                        await qotdMessage.delete();
+
+                        const newQotdMessage = await message.channel.send({
+                            content: qotdMessage.content,
+                            allowedMentions: { parse: [] }
+                        });
+
+                        config.qotdLastMessageId = newQotdMessage.id;
+                        memory.qotd.lastMessageId = newQotdMessage.id;
+                        saveMemory(memory);
+                    }
+                } catch (err) {
+                    console.warn('Failed to resend QOTD:', err.message);
+                    if (err.code === 10008) {
+                        config.qotdLastMessageId = null;
+                        memory.qotd.lastMessageId = null;
+                        saveMemory(memory);
+                    }
+                }
+            }, 10000);
         }
+    }
+
+    if (message.channel.type === ChannelType.DM) {
+        console.log(`[DM Received] From: ${message.author.tag} (${message.author.id}) at ${new Date().toLocaleString()}: ${message.content}`);
+
+        let responseArray = BOT_PING_RESPONSES;
+        
+        if (SPECIAL_USER_RESPONSES[message.author.id]) {
+            responseArray = SPECIAL_USER_RESPONSES[message.author.id];
+        }
+        
+        const randomResponse = responseArray[Math.floor(Math.random() * responseArray.length)];
+        await message.reply(`${randomResponse}\n-# {Messages here are being logged for operational and feedback purposes.}`);
+
+        console.log(`[DM Response] To: ${message.author.tag} (${message.author.id}) at ${new Date().toLocaleString()}: ${randomResponse}`);
+        return;
     }
 
     if (message.content.toLowerCase().includes('snaw wee')) {
@@ -694,23 +1059,7 @@ client.on(Events.MessageCreate, async (message) => {
     }
 });
 
-client.on(Events.MessageCreate, async (message) => {
-    if (message.author.bot) return;
-    
-    if (message.channel.type === ChannelType.DM) {
-        console.log(`[DM Received] From: ${message.author.tag} (${message.author.id}) at ${new Date().toLocaleString()}: ${message.content}`);
-        
-        let responseArray = BOT_PING_RESPONSES;
-        
-        if (SPECIAL_USER_RESPONSES[message.author.id]) {
-            responseArray = SPECIAL_USER_RESPONSES[message.author.id];
-        }
-        
-        const randomResponse = responseArray[Math.floor(Math.random() * responseArray.length)];
-        await message.reply(randomResponse);
-        
-        console.log(`[DM Response] To: ${message.author.tag} (${message.author.id}): ${randomResponse}`);
-    }
+client.login(token).catch(err => {
+    console.error('Failed to log in:', err.message);
+    process.exit(1);
 });
-
-client.login(token);
