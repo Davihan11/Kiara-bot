@@ -5,6 +5,7 @@ const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 const { getRandomIcebreaker, getTotalIcebreakers } = require('../data/questions');
+const { setupWordle, handleWordleInteraction, setupWordleCommand, wordleStatsCommand, wordleScanCommand, wordleSyncCommand, wordleHideCommand } = require('./wordle');
 
 const {
     DISCORD_TOKEN: token,
@@ -131,7 +132,8 @@ function loadMemory() {
         fox: { channelId: FOX_CHANNEL_ID, schedule: '0 8 * * *' },
         cat: { channelId: CAT_CHANNEL_ID, schedule: '0 20 * * *' },
         qotd: { channelId: QOTD_CHANNEL_ID, schedule: '0 14 * * *', lastChannelId: null, lastMessageId: null },
-        quote: { channelId: QUOTE_CHANNEL_ID, schedule: '0 2 * * *' }
+        quote: { channelId: QUOTE_CHANNEL_ID, schedule: '0 2 * * *' },
+        wordle: { channelId: null }
     };
 }
 
@@ -275,7 +277,6 @@ let currentCronJobFox = null;
 let currentCronJobCat = null;
 let currentCronJobQOTD = null;
 let currentCronJobQuote = null;
-let qotdResendTimer = null;
 
 async function fetchFoxData() {
     try {
@@ -296,6 +297,7 @@ async function fetchFoxData() {
 }
 
 async function fetchCatData() {
+
     try {
         const { data } = await axios.get('https://api.unsplash.com/photos/random', {
             params: { query: 'cat', client_id: unsplashKey }
@@ -730,7 +732,7 @@ client.once(Events.ClientReady, async (readyClient) => {
     try {
         await rest.put(
             Routes.applicationGuildCommands(readyClient.user.id, serverIds[0]),
-            { body: [setupCommandFox.toJSON(), scheduleCommandFox.toJSON(), setupCommandCat.toJSON(), scheduleCommandCat.toJSON(), setupCommandQOTD.toJSON(), scheduleCommandQOTD.toJSON(), setupCommandQuote.toJSON(), scheduleCommandQuote.toJSON()] }
+            { body: [setupCommandFox.toJSON(), scheduleCommandFox.toJSON(), setupCommandCat.toJSON(), scheduleCommandCat.toJSON(), setupCommandQOTD.toJSON(), scheduleCommandQOTD.toJSON(), setupCommandQuote.toJSON(), scheduleCommandQuote.toJSON(), setupWordleCommand.toJSON(), wordleStatsCommand.toJSON(), wordleScanCommand.toJSON(), wordleSyncCommand.toJSON(), wordleHideCommand.toJSON()] }
         );
         console.log('Slash commands registered to guild instantly!');
     } catch (err) {
@@ -796,21 +798,25 @@ client.on(Events.InteractionCreate, async (interaction) => {
     const isOwner = ownerIds && ownerIds.split(',').map(id => id.trim()).includes(String(interaction.user.id));
     const { commandName } = interaction;
 
+    const PUBLIC_COMMANDS = ['privacy', 'wordlestats'];
+
     if (commandName === 'privacy') {
         const contactMention = specialUserIds[0] ? `<@${specialUserIds[0]}>` : 'the bot owner';
 
         const privacyNotice =
             `## Privacy & Data Notice\n\n` +
-            `This bot processes public text channel activity to post scheduled content and "ancient quotes".\n\n` +
+            `This bot processes public text channel activity to post scheduled content, "ancient quotes", and track Wordle results.\n\n` +
             `**What we store:**\n` +
             `• Discord Snowflakes (Message ID, Channel ID, and User ID). **We do not store message text on disk.**\n` +
-            `• Data references are cached locally for up to 14 days and resolved live via the Discord API.\n\n` +
+            `• Data references are cached locally for up to 14 days and resolved live via the Discord API.\n` +
+            `• **Wordle stats:** when the Wordle bot posts daily results, we store each player's user ID (or plain-text name) and their guess count per day in a local file to power the \`/wordlestats\` leaderboard.\n\n` +
             `**Direct Messages & Pings:**\n` +
             `• Direct messages (DMs) sent to the bot are printed to the console terminal for operational and feedback monitoring.\n\n` +
             `**Your rights:**\n` +
             `• You may request a copy of any stored data relating to you.\n` +
             `• You may request full deletion of your messages from our system.\n` +
-            `• You may object to your messages being used for quotes; we will exclude them from future quote posts.\n\n` +
+            `• You may object to your messages being used for quotes; we will exclude them from future quote posts.\n` +
+            `• You may request to be removed from the Wordle leaderboard; we will hide your stats.\n\n` +
             `To exercise any of these rights, please contact ${contactMention}.`;
 
         return interaction.reply({
@@ -819,7 +825,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         });
     }
 
-    if (!isOwner) {
+    if (!isOwner && !PUBLIC_COMMANDS.includes(commandName)) {
         return interaction.reply({
             content: 'You are such a **baaaad** *girl/boy/paw*~. Go fetch me some water to splash you with.',
             ephemeral: false
@@ -987,39 +993,38 @@ client.on(Events.InteractionCreate, async (interaction) => {
         });
     }
 
+    if (commandName === 'setupwordle' || commandName === 'wordlestats' || commandName === 'wordlescan' || commandName === 'wordlesync' || commandName === 'wordlehide') {
+        return handleWordleInteraction(interaction, memory, saveMemory);
+    }
+
 });
 
 client.on(Events.MessageCreate, async (message) => {
     if (message.author.bot) return;
 
     if (config.qotdLastMessageId && config.qotdLastChannelId === message.channel.id) {
-        if (!qotdResendTimer) {
-            qotdResendTimer = setTimeout(async () => {
-                qotdResendTimer = null;
-                try {
-                    const qotdMessage = await message.channel.messages.fetch(config.qotdLastMessageId);
+        try {
+            const qotdMessage = await message.channel.messages.fetch(config.qotdLastMessageId);
 
-                    if (qotdMessage) {
-                        await qotdMessage.delete();
+            if (qotdMessage) {
+                await qotdMessage.delete();
 
-                        const newQotdMessage = await message.channel.send({
-                            content: qotdMessage.content,
-                            allowedMentions: { parse: [] }
-                        });
+                const newQotdMessage = await message.channel.send({
+                    content: qotdMessage.content,
+                    allowedMentions: { parse: [] }
+                });
 
-                        config.qotdLastMessageId = newQotdMessage.id;
-                        memory.qotd.lastMessageId = newQotdMessage.id;
-                        saveMemory(memory);
-                    }
-                } catch (err) {
-                    console.warn('Failed to resend QOTD:', err.message);
-                    if (err.code === 10008) {
-                        config.qotdLastMessageId = null;
-                        memory.qotd.lastMessageId = null;
-                        saveMemory(memory);
-                    }
-                }
-            }, 10000);
+                config.qotdLastMessageId = newQotdMessage.id;
+                memory.qotd.lastMessageId = newQotdMessage.id;
+                saveMemory(memory);
+            }
+        } catch (err) {
+            console.warn('Failed to resend QOTD:', err.message);
+            if (err.code === 10008) {
+                config.qotdLastMessageId = null;
+                memory.qotd.lastMessageId = null;
+                saveMemory(memory);
+            }
         }
     }
 
@@ -1058,6 +1063,8 @@ client.on(Events.MessageCreate, async (message) => {
         await message.reply(randomResponse);
     }
 });
+
+setupWordle(client, memory, saveMemory);
 
 client.login(token).catch(err => {
     console.error('Failed to log in:', err.message);
