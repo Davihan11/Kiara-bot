@@ -1103,6 +1103,23 @@ client.on(Events.MessageCreate, async (message) => {
             "I will take these laminate wood floor boards and destroy you. I didn't want a war, but I didn't start it.");
         return;
     }
+	
+	if (message.content.toLowerCase().includes('Israel')) { //don't. just don't.
+        await message.reply("Majro! " +
+            "Wake up, Majro! " +
+            "Someone mentioned Israel. " +
+            "Go show them! ");
+        return;
+    }
+
+	if (message.content.toLowerCase().includes('67')) { //don't. just don't.
+        await message.reply("Cee! " +
+            "Someone said 67! " +
+            "Don't cee yourself, PeeZee. " +
+            "<@917355352851353610>");
+        return;
+    }
+
 
     if (message.mentions.users.has(client.user.id)) { //someone pinged the bot
         let responseArray = BOT_PING_RESPONSES;
