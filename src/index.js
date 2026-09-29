@@ -1120,6 +1120,10 @@ client.on(Events.MessageCreate, async (message) => {
         return;
     }
 
+    if (message.content.toLowerCase().includes('wee snaw')) { //don't. just don't.
+        await message.reply("wee snaw");
+        return;
+    }
 
     if (message.mentions.users.has(client.user.id)) { //someone pinged the bot
         let responseArray = BOT_PING_RESPONSES;
