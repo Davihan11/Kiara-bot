@@ -1115,8 +1115,7 @@ client.on(Events.MessageCreate, async (message) => {
 	if (message.content.toLowerCase().includes('67') || message.content.toLowerCase().includes('six seven')) { //don't. just don't. added by majro
         await message.reply("Cee! " +
             "Someone said 67! " +
-            "Don't cee yourself, PeeZee. " +
-            "<@917355352851353610>");
+            "Don't cee yourself, PeeZee.");
         return;
     }
 
