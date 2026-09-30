@@ -117,11 +117,28 @@ function parseResultLine(line) {
     return { guesses, userIds: users };
 }
 
+//forced timezone for all Wordle date math - matches the cron schedules in index.js
+//(without this, dates are computed in UTC, which is 2 hours behind and assigns
+//results posted shortly after midnight to the wrong day)
+const WORDLE_TIMEZONE = 'Europe/Bratislava';
+
+//formats a date as "YYYY-MM-DD" in the forced timezone (not UTC!)
+function dateISOInTimezone(date) {
+    const parts = new Intl.DateTimeFormat('en-CA', { //en-CA gives us ISO-style YYYY-MM-DD
+        timeZone: WORDLE_TIMEZONE,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+    }).formatToParts(date);
+    const get = (type) => parts.find((p) => p.type === type).value;
+    return `${get('year')}-${get('month')}-${get('day')}`;
+}
+
 //gets yesterday's date - because results are posted TODAY, but they belong to YESTERDAY's game
 function previousDayISO(date) {
     const d = new Date(date); //work on a copy so we don't touch the original
     d.setUTCDate(d.getUTCDate() - 1); //go back one day
-    return d.toISOString().slice(0, 10); //grab just the "YYYY-MM-DD" part
+    return dateISOInTimezone(d); //grab just the "YYYY-MM-DD" part, in our timezone
 }
 
 //turns a Wordle bot message into a day entry: { date, streak, entries }
