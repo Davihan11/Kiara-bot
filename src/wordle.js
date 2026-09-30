@@ -145,34 +145,28 @@ function previousDayISO(date) {
 //returns null if it's not a results post, or has no usable result lines
 function parseWordleMessage(content, date) {
     if (!WORDLE_RESULTS_PATTERN.test(content)) { //not a results post
-        console.log('[wordle][debug] Content does not match results pattern — not a results message');
         return null;
     }
 
     const streak = extractStreak(content); //the group streak number
-    console.log(`[wordle][debug] Results pattern matched. Extracted streak: ${streak}`);
     const entries = [];
 
     //split into individual lines and try to parse each one
     const lines = content.split('\n');
-    console.log(`[wordle][debug] Scanning ${lines.length} line(s) for result entries`);
     for (const line of lines) {
         const entry = parseResultLine(line);
         if (entry) { //the line parsed fine -> keep it
-            console.log(`[wordle][debug]   line matched: "${line.trim()}" -> guesses=${entry.guesses}, users=[${entry.userIds.join(', ')}]`);
             entries.push(entry);
         }
     }
 
     //it said "results" but we found nothing usable inside
     if (entries.length === 0) {
-        console.log('[wordle][debug] Results message contained no parseable result lines — skipping');
         return null;
     }
 
     //use the date passed in, otherwise default to "yesterday" (live messages)
     const resolvedDate = date || previousDayISO(new Date());
-    console.log(`[wordle][debug] Resolved date: ${resolvedDate} (${date ? `explicitly provided: ${date}` : `computed from now: ${new Date().toISOString()}`})`);
 
     return {
         date: resolvedDate,
@@ -186,11 +180,9 @@ function parseWordleMessage(content, date) {
 function mergeDayEntry(data, dayEntry) {
     const existingIndex = data.findIndex((d) => d.date === dayEntry.date); //do we already have this day?
     if (existingIndex !== -1) {
-        console.log(`[wordle][debug] Date ${dayEntry.date} already exists at index ${existingIndex} — overwriting (${data[existingIndex].entries.length} old entries -> ${dayEntry.entries.length} new entries)`);
         data[existingIndex] = dayEntry; //same day again -> replace it
         console.log(`[wordle] Updated results for ${dayEntry.date}`);
     } else {
-        console.log(`[wordle][debug] Date ${dayEntry.date} is new — appending to store`);
         data.push(dayEntry); //brand new day -> just add it
         console.log(`[wordle] Saved results for ${dayEntry.date} (${dayEntry.entries.length} entries)`);
     }
@@ -202,7 +194,6 @@ function applySyncToEntry(dayEntry, syncMap) {
     for (const entry of dayEntry.entries) { //go over every result of this day
         entry.userIds = entry.userIds.map((u) => { //and every player in it
             if (syncMap[u]) { //we have a mapping for this name -> swap it for the real ID
-                console.log(`[wordle][debug] Sync applied: "${u}" -> ${syncMap[u]}`);
                 return syncMap[u];
             }
             return u; //no mapping -> keep it as is
@@ -242,16 +233,12 @@ async function backfillWordleData(channel, maxBatches = 100) {
     const data = loadWordleData(); //what we already have saved
     const syncMap = loadWordleSync(); //existing name -> ID mappings
 
-    console.log(`[wordle][debug] Backfill starting in channel ${channel.id}. Existing days: ${data.length}, sync mappings: ${Object.keys(syncMap).length}`);
-
     for (let i = 0; i < maxBatches; i++) { //fetch in batches of 100, maxBatches is a safety cap
         const batch = await channel.messages.fetch({ limit: 100, before, user: WORDLE_USER_ID }); //only messages from the Wordle bot
-        console.log(`[wordle][debug] Batch ${i + 1}: fetched ${batch.size} message(s)${before ? ` before ${before}` : ''}`);
         if (batch.size === 0) break; //reached the beginning of the channel -> stop
 
         for (const msg of batch.values()) { //go over every message in this batch
             const date = previousDayISO(msg.createdAt); //posted today = yesterday's game
-            console.log(`[wordle][debug] Scanning message ${msg.id} from ${msg.createdAt.toISOString()} -> assigned date ${date}`);
             const dayEntry = parseWordleMessage(msg.content, date);
             if (!dayEntry) continue; //not a results post -> skip
 
@@ -265,10 +252,8 @@ async function backfillWordleData(channel, maxBatches = 100) {
         before = oldest.id; //the next batch fetches messages older than this one
     }
 
-    console.log(`[wordle][debug] Backfill finished. ${found} result post(s) found`);
     if (found > 0) { //only write to disk if we actually found something
         saveWordleData(data);
-        console.log(`[wordle][debug] Backfill save complete. Store now has ${data.length} day(s)`);
     }
     return found;
 }
@@ -279,36 +264,22 @@ function setupWordle(client, memory, saveMemory) {
     client.on(Events.MessageCreate, async (message) => {
         if (message.author.id !== WORDLE_USER_ID) return; //only care about the Wordle bot's messages
 
-        console.log(`[wordle][debug] Message from Wordle bot in channel ${message.channel.id} at ${message.createdAt.toISOString()}`);
-
         const channelId = memory.wordle && memory.wordle.channelId; //the configured channel (saved by /setupwordle)
         if (channelId && message.channel.id !== channelId) { //wrong channel -> ignore it
-            console.log(`[wordle][debug] Ignored: channel ${message.channel.id} does not match configured channel ${channelId}`);
             return;
         }
-
-        console.log(`[wordle][debug] Raw content (${message.content.length} chars):\n${message.content}`);
 
         const dayEntry = parseWordleMessage(message.content);
         if (!dayEntry) {
-            console.log('[wordle][debug] Message did not parse as Wordle results — skipping');
             return;
         }
 
-        console.log(`[wordle][debug] Parsed: date=${dayEntry.date}, streak=${dayEntry.streak}, entries=${dayEntry.entries.length}`);
-        for (const entry of dayEntry.entries) {
-            console.log(`[wordle][debug]   entry: guesses=${entry.guesses}, users=[${entry.userIds.join(', ')}]`);
-        }
-
         const syncMap = loadWordleSync(); //existing name -> ID mappings
-        console.log(`[wordle][debug] Sync map (${Object.keys(syncMap).length} mappings): ${JSON.stringify(syncMap)}`);
         applySyncToEntry(dayEntry, syncMap); //apply them
 
         const data = loadWordleData(); //what we have so far
-        console.log(`[wordle][debug] Loaded ${data.length} existing day(s). Dates: ${data.map((d) => d.date).join(', ') || '(none)'}`);
         mergeDayEntry(data, dayEntry); //add or update the day
         saveWordleData(data); //write to disk
-        console.log(`[wordle][debug] Save complete. Store now has ${data.length} day(s)`);
     });
 }
 
