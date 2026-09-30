@@ -1104,7 +1104,7 @@ client.on(Events.MessageCreate, async (message) => {
         return;
     }
 	
-	if (message.content.toLowerCase().includes('Israel')) { //don't. just don't.
+	if (message.content.toLowerCase().includes('israel')) { //don't. just don't. added by majro
         await message.reply("Majro! " +
             "Wake up, Majro! " +
             "Someone mentioned Israel. " +
@@ -1112,10 +1112,15 @@ client.on(Events.MessageCreate, async (message) => {
         return;
     }
 
-	if (message.content.toLowerCase().includes('67')) { //don't. just don't.
+	if (message.content.toLowerCase().includes('67') || message.content.toLowerCase().includes('six seven')) { //don't. just don't. added by majro
         await message.reply("Cee! " +
             "Someone said 67! " +
             "Don't cee yourself, PeeZee.");
+        return;
+    }
+
+    if (message.content.toLowerCase().includes('jahy')) {           // added by Icky
+        await message.reply("Did someone mention the Great Jahy from Jahy-sama wa kujikenai????");
         return;
     }
 
