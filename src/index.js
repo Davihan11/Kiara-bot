@@ -1112,7 +1112,7 @@ client.on(Events.MessageCreate, async (message) => {
         return;
     }
 
-	if (message.content.toLowerCase().includes('67') || message.content.toLowerCase().includes('six seven')) { //don't. just don't. added by majro
+	if (message.content.toLowerCase().includes('67') || message.content.toLowerCase().includes('six seven')) { //don't. just don't. added partially by majro
         await message.reply("Cee! " +
             "Someone said 67! " +
             "Don't cee yourself, PeeZee.");
@@ -1126,6 +1126,41 @@ client.on(Events.MessageCreate, async (message) => {
 
     if (message.content.toLowerCase().includes('wee snaw')) { //don't. just don't.
         await message.reply("wee snaw");
+        return;
+    }
+
+	if (message.content.toLowerCase().includes('fuck')) { //In case someone uses the F-word. Added by Majro.
+        await message.reply("Hey, don't swear!");
+        return;
+    }
+
+	if (message.content.toLowerCase().includes('goy')) { //No explanation needed. Added by Majro.
+        await message.reply("Oy vey!");
+        return;
+    }
+
+	if (message.content.toLowerCase().includes('skibidi')) { //Don't be brainroted. Added by Majro.
+        await message.reply("What did this brainrot ah kid just say?");
+        return;
+    }
+
+	if (message.content.toLowerCase().includes('operation cast thy bread')) { //Sorry for adding this. Added by Majro.
+        await message.reply("Too much ball knowledge!");
+        return;
+    }
+
+	if (message.content.toLowerCase().includes('kiara sing')) { //The singing is not great. Added by Majro.
+        await message.reply("LA LA LA! LA LA LA! Okay, that was terrible.");
+        return;
+    }
+
+	if (message.content.toLowerCase().includes('crazy')) { //Added by Majro.
+        await message.reply("Crazy? I was crazy once...");
+        return;
+    }
+
+	if (message.content.toLowerCase().includes('pneumonoultramicroscopicsilicovolcanoconiosis')) { //Don't use unnecessarily long words. Added by Majro.
+        await message.reply("YOU COULD JUST HAVE SAID SILICOSIS!");
         return;
     }
 
