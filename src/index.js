@@ -1152,7 +1152,7 @@ client.on(Events.MessageCreate, async (message) => {
     },
     {
         keywords: ['yay'],
-        reply: "YAY! WHATCH'A ARE WE EXCITED FOR!!! COUNT ME IN!!! (>^W^<)"
+        reply: "YAY! WHATCH'A ARE WE EXCITED FOR?!?! COUNT ME IN!!! (>^W^<)"
     },
     {
         keywords: ['nay'],
