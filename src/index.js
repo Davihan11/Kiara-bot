@@ -1096,73 +1096,68 @@ client.on(Events.MessageCreate, async (message) => {
         return;
     }
 
-    if (message.content.toLowerCase().includes('snaw wee')) { //don't. just don't.
-        await message.reply("you fool. you absolute buffoon. you think you can challenge me in my own realm? " +
-            "you think you can rebel against my authority? you dare come into my house and upturn my dining chairs " +
-            "and spill coffee grounds in my Keurig? you thought you were safe in your chain mail armor behind that screen of yours. " +
-            "I will take these laminate wood floor boards and destroy you. I didn't want a war, but I didn't start it.");
-        return;
-    }
-	
-	if (message.content.toLowerCase().includes('israel')) { //don't. just don't. added by majro
-        await message.reply("Majro! " +
-            "Wake up, Majro! " +
-            "Someone mentioned Israel. " +
-            "Go show them! ");
-        return;
-    }
+    const content = message.content.toLowerCase();
 
-	if (message.content.toLowerCase().includes('67') || message.content.toLowerCase().includes('six seven')) { //don't. just don't. added partially by majro
-        await message.reply("Cee! " +
-            "Someone said 67! " +
-            "Don't cee yourself, PeeZee.");
-        return;
+    const triggers = [
+    {
+        keywords: ['snaw wee'],
+        reply: "you fool. you absolute buffoon. you think you can challenge me in my own realm? " +
+               "you think you can rebel against my authority? you dare come into my house and upturn my dining chairs " +
+               "and spill coffee grounds in my Keurig? you thought you were safe in your chain mail armor behind that screen of yours. " +
+               "I will take these laminate wood floor boards and destroy you. I didn't want a war, but I didn't start it."
+    },
+    {
+        keywords: ['israel'],
+        reply: "Majro! Wake up, Majro! Someone mentioned Israel. Go show them! "
+    },
+    {
+        keywords: ['67', 'six seven'],
+        reply: "Cee! Someone said 67! Don't cee yourself, PeeZee."
+    },
+    {
+        keywords: ['jahy'],
+        reply: "Did someone mention the Great Jahy from Jahy-sama wa kujikenai????"
+    },
+    {
+        keywords: ['wee snaw'],
+        reply: "wee snaw"
+    },
+    {
+        keywords: ['fuck'],
+        reply: "Hey, don't swear!"
+    },
+    {
+        keywords: ['goy'],
+        reply: "Oy vey!"
+    },
+    {
+        keywords: ['skibidi'],
+        reply: "What did this brainrot ah kid just say?"
+    },
+    {
+        keywords: ['operation cast thy bread'],
+        reply: "Too much ball knowledge!"
+    },
+    {
+        keywords: ['kiara sing'],
+        reply: "LA LA LA! LA LA LA! Okay, that was terrible."
+    },
+    {
+        keywords: ['crazy'],
+        reply: "Crazy? I was crazy once..."
+    },
+    {
+        keywords: ['pneumonoultramicroscopicsilicovolcanoconiosis'],
+        reply: "YOU COULD JUST HAVE SAID SILICOSIS!"
     }
+];
 
-    if (message.content.toLowerCase().includes('jahy')) {           // added by Icky
-        await message.reply("Did someone mention the Great Jahy from Jahy-sama wa kujikenai????");
+    for (const trigger of triggers) {
+    if (trigger.keywords.some(kw => content.includes(kw))) {
+        await message.reply(trigger.reply);
         return;
     }
-
-    if (message.content.toLowerCase().includes('wee snaw')) { //don't. just don't.
-        await message.reply("wee snaw");
-        return;
-    }
-
-	if (message.content.toLowerCase().includes('fuck')) { //In case someone uses the F-word. Added by Majro.
-        await message.reply("Hey, don't swear!");
-        return;
-    }
-
-	if (message.content.toLowerCase().includes('goy')) { //No explanation needed. Added by Majro.
-        await message.reply("Oy vey!");
-        return;
-    }
-
-	if (message.content.toLowerCase().includes('skibidi')) { //Don't be brainroted. Added by Majro.
-        await message.reply("What did this brainrot ah kid just say?");
-        return;
-    }
-
-	if (message.content.toLowerCase().includes('operation cast thy bread')) { //Sorry for adding this. Added by Majro.
-        await message.reply("Too much ball knowledge!");
-        return;
-    }
-
-	if (message.content.toLowerCase().includes('kiara sing')) { //The singing is not great. Added by Majro.
-        await message.reply("LA LA LA! LA LA LA! Okay, that was terrible.");
-        return;
-    }
-
-	if (message.content.toLowerCase().includes('crazy')) { //Added by Majro.
-        await message.reply("Crazy? I was crazy once...");
-        return;
-    }
-
-	if (message.content.toLowerCase().includes('pneumonoultramicroscopicsilicovolcanoconiosis')) { //Don't use unnecessarily long words. Added by Majro.
-        await message.reply("YOU COULD JUST HAVE SAID SILICOSIS!");
-        return;
-    }
+}
 
     if (message.mentions.users.has(client.user.id)) { //someone pinged the bot
         let responseArray = BOT_PING_RESPONSES;
