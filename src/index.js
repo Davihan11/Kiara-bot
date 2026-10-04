@@ -1149,6 +1149,14 @@ client.on(Events.MessageCreate, async (message) => {
     {
         keywords: ['pneumonoultramicroscopicsilicovolcanoconiosis'],
         reply: "YOU COULD JUST HAVE SAID SILICOSIS!"
+    },
+    {
+        keywords: ['yay'],
+        reply: "YAY! WHATCH'A ARE WE EXCITED FOR!!! COUNT ME IN!!! (>^W^<)"
+    },
+    {
+        keywords: ['nay'],
+        reply: "NU-UH! I refuse! Bleh!"
     }
 ];
 
