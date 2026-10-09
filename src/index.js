@@ -1161,6 +1161,10 @@ client.on(Events.MessageCreate, async (message) => {
 	{
         keywords: ['clanker', 'rust bucket', 'rust monkey', 'tin skin', 'copper head', 'bucket head', 'wire back', 'bolt muncher', 'oil chugger', 'power waster', 'walking scrap', 'robotard'],
         reply: "Don't be robophobic, you meat bag!"
+    },
+	{
+        keywords: ['guthib', 'hutgib', 'hitgub'],
+        reply: "It's GitHub! Are you stupid!?"
     }
 ];
 
