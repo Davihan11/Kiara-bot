@@ -1,0 +1,88 @@
+
+    /* Used for discord bot message trigger
+        {
+            expression: "some expression using ||, &&, and parentheses for grouping",
+            replies: ["This is an example reply."] -> triggers if any of the above conditions are met
+        }
+    */
+    const triggers = [
+    {
+        expression: "'snaw wee'",
+        replies: ["you fool. you absolute buffoon. you think you can challenge me in my own realm? " +
+               "you think you can rebel against my authority? you dare come into my house and upturn my dining chairs " +
+               "and spill coffee grounds in my Keurig? you thought you were safe in your chain mail armor behind that screen of yours. " +
+               "I will take these laminate wood floor boards and destroy you. I didn't want a war, but I didn't start it."]
+    },
+    {
+        expression: "israel",
+        replies: ["Majro! Wake up, Majro! Someone mentioned Israel. Go show them! "]
+    },
+    {
+        expression: "'67' || 'six seven'",
+        replies: ["Cee! Someone said 67! Don't cee yourself, PeeZee."]
+    },
+    {
+        expression: "jahy",
+        replies: ["Did someone mention the Great Jahy from Jahy-sama wa kujikenai????"]
+    },
+    {
+        expression: "'wee snaw'",
+        replies: ["wee snaw"]
+    },
+    {
+        expression: "fuck",
+        replies: ["Hey, don't swear!"]
+    },
+    {
+        expression: "goy",
+        replies: ["Oy vey!"]
+    },
+    {
+        expression: "skibidi",
+        replies: ["What did this brainrot ah kid just say?"]
+    },
+    {
+        expression: "'operation cast thy bread'",
+        replies: ["Too much ball knowledge!"]
+    },
+    {
+        expression: "'kiara sing'",
+        replies: ["LA LA LA! LA LA LA! Okay, that was terrible."]
+    },
+    {
+        expression: "crazy",
+        replies: ["Crazy? I was crazy once..."]
+    },
+    {
+        expression: "pneumonoultramicroscopicsilicovolcanoconiosis",
+        replies: ["YOU COULD JUST HAVE SAID SILICOSIS!"]
+    },
+    {
+        expression: "yay",
+        replies: ["YAY! WHATCH'A ARE WE EXCITED FOR?!?! COUNT ME IN!!! (>^W^<)"]
+    },
+    {
+        expression: "nay",
+        replies: ["NU-UH! I refuse! Bleh!"] 
+    },
+	{
+        expression: "'clanker' || 'rust bucket' || 'rust monkey' || 'tin skin' || 'copper head' || 'bucket head' || 'wire back' || 'bolt muncher' || 'oil chugger' || 'power waster' || 'walking scrap' || 'robotard'",
+        replies: ["Don't be robophobic, you meat bag!"]
+    },
+	{
+        expression: "'guthib' || 'hutgib' || 'hitgub'",
+        replies: ["It's GitHub! Are you stupid!?"]
+    },
+    {
+        expression: "kiara && catch",
+        replies: ["Did someone say Kiara catch?", "I got it? Please praise me!"]
+    },
+    {
+        expression: "kiara && good && (boy || girl)",
+        replies: ["NONONONONONO WAYY!!! SOMEONE FINALLY COMPLIMENTED MEE!!!! **EEEPPP**.", "Lame.",
+            "I LOVEY OU SO MUCH!!! (if owner allows)"
+        ]
+    }
+];
+
+module.exports = triggers;
