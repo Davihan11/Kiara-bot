@@ -130,6 +130,29 @@ if (specialUserIds[1]) { //second special user -> "good girl" responses
     ];
 }
 
+// random answers the bot picks when it gets asked a question about what it thinks
+const BOT_ANSWER_RESPONSES = [
+    "Yes",
+    "No",
+    "Idk",
+    "You should ask my owner",
+    "Why are you asking me???",
+    "Maybe",
+    "I hope not",
+    "Mhm",
+    "I don't think so",
+    "I miss my owner...",
+    "I'd rather not answer that",
+    "Gosh you are weird",
+    "Yeah, definetly no",
+    "OMG YES",
+    "I'm calling the police",
+    "WHAT",
+    "Hmmmm...",
+    "Hmpf!",
+    "*slowly backs away*"
+];
+
 //loads the bot's saved settings from memory.json (channels, schedules, last QOTD message)
 //if the file is missing or broken, we fall back to the .env defaults
 function loadMemory() {
@@ -1165,8 +1188,20 @@ client.on(Events.MessageCreate, async (message) => {
 	{
         keywords: ['guthib', 'hutgib', 'hitgub'],
         reply: "It's GitHub! Are you stupid!?"
+    },
+    {
+        keywords: ['hey kiara'],
+        reply: "Yes..?"
     }
 ];
+
+    // random talking ben-style responses
+    if (content.includes('what' && 'kiara')){
+        let answerArray = BOT_ANSWER_RESPONSES;
+        const randomAnswer = answerArray[Math.floor(Math.random() * answerArray.length)]; //roll the dice
+        await message.reply(randomAnswer);
+        return;
+    }
 
     for (const trigger of triggers) {
     if (trigger.keywords.some(kw => content.includes(kw))) {
