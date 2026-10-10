@@ -8,6 +8,8 @@ const fs = require('fs'); //for reading/writing files
 const path = require('path'); //for building file paths
 const { getRandomIcebreaker, getTotalIcebreakers } = require('../data/questions');
 const { setupWordle, handleWordleInteraction, setupWordleCommand, wordleStatsCommand, wordleScanCommand, wordleSyncCommand, wordleHideCommand } = require('./wordle');
+const { tokenize, parse, evaluate, compile } = require('./utils/parser');
+const triggers = require('./utils/triggers');
 
 //const = a value you can't reassign (these come from .env, cause they're secrets)
 const {
@@ -67,9 +69,9 @@ const BOT_PING_RESPONSES = [
     'If you ping me once more, I will delete your account!',
     'Kraaa ARAAAA KRAAA BARK!',
     'Wee snaw!',
-    'Hey there!',
+      'Hey there!',
     'Need anything?',
-    "Stay safe!",
+  "Stay safe!",
     ">.<",
     "^w^",
     "UwU",
@@ -128,6 +130,17 @@ if (specialUserIds[1]) { //second special user -> "good girl" responses
         `Good **girl**~! *tail wag* ${EMOTE_GIRL}`,
         `You are **such** a good **girl**~! *tail wag* ${EMOTE_GIRL}`
     ];
+}
+
+//compile the AST for each trigger with a string expression
+for (const trigger of triggers) {
+    if (typeof trigger.expression === 'string') {
+        try {
+            trigger.ast = compile(parse(tokenize(trigger.expression)));
+        } catch (e) {
+            console.error(`Invalid expression "${trigger.expression}": ${e.message}`);
+        }
+    }
 }
 
 //loads the bot's saved settings from memory.json (channels, schedules, last QOTD message)
@@ -442,7 +455,7 @@ async function fetchQOTDData() {
             const question = PRIORITY_QOTDS[0];
             console.log('Selected from priority queue');
             //TODO -> consider removing the used priority QOTD from the list to avoid repetition
-            return { 
+            return {
                 question: question
             };
         }
@@ -455,7 +468,7 @@ async function fetchQOTDData() {
             //TODO -> remove the totalQuestions const and just print that it used non API question source
             console.log(`Selected from ${totalQuestions} questions`);
 
-            return { 
+            return {
                 question: question
             };
         } else { //ask the API for a question
@@ -465,7 +478,7 @@ async function fetchQOTDData() {
                 }
             });
             const questionText = data.questions && data.questions.length > 0 //take the first question from the response
-                ? data.questions[0] 
+                ? data.questions[0]
                 : 'No question available';
 
             console.log('Selected from external API');
@@ -507,7 +520,7 @@ async function triggerQOTDPost() {
         }
 
         const headerContent = `<@&${QOTD_ROLE_ID}>\n\n## QUESTION OF THE DAY\n\n**${data.question}**\n\n-# Have any suggestions for future questions? DM <@${QOTD_FEEDBACK_USER_ID}>!`;
-        
+
         await channel.send({ //post the new question
             content: headerContent,
         });
@@ -516,7 +529,7 @@ async function triggerQOTDPost() {
             content: `--------------------------\n\n**${data.question}**`,
             allowedMentions: { parse: [] } //should stop @everyone/@here pings... but it kinda still pings me daily xwx
         });
-        
+
         //again, duplicate pattern, TODO make this single source of truth
         config.qotdLastChannelId = config.channelIdQOTD; //remember the new message...
         config.qotdLastMessageId = newMessage.id;
@@ -543,7 +556,7 @@ function setScheduleQOTD(expression) {
         scheduled: true,
         timezone: 'Europe/Bratislava'
     });
-    
+
     console.log(`QOTD schedule updated to "${expression}" (Europe/Bratislava)`);
 }
 
@@ -731,7 +744,7 @@ async function triggerQuotePost() {
             .setURL(messageUrl);
 
         const row = new ActionRowBuilder().addComponents(viewButton); //buttons go inside "action rows"
-    
+
         await channel.send({
             content,
             components: [row],
@@ -786,7 +799,7 @@ client.once(Events.ClientReady, async (readyClient) => {
             { body: [setupCommandFox.toJSON(), scheduleCommandFox.toJSON(), setupCommandCat.toJSON(), scheduleCommandCat.toJSON(), setupCommandQOTD.toJSON(), scheduleCommandQOTD.toJSON(), setupCommandQuote.toJSON(), scheduleCommandQuote.toJSON(), setupWordleCommand.toJSON(), wordleStatsCommand.toJSON(), wordleScanCommand.toJSON(), wordleSyncCommand.toJSON(), wordleHideCommand.toJSON()] }
         );
         console.log('Slash commands registered to guild instantly!');
-    } catch (err) { 
+    } catch (err) {
         console.error('Failed to register commands:', err);
     }
 
@@ -1002,7 +1015,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
         console.log(`Quote post channel configured to: ${channel.name} (${channel.id})`);
         return interaction.reply({
-            content: `Got it! Quotes will now be posted in ${channel}`, 
+            content: `Got it! Quotes will now be posted in ${channel}`,
             ephemeral: true
         });
     }
@@ -1084,11 +1097,11 @@ client.on(Events.MessageCreate, async (message) => {
         console.log(`[DM Received] From: ${message.author.tag} (${message.author.id}) at ${new Date().toLocaleString()}: ${message.content}`);
 
         let responseArray = BOT_PING_RESPONSES; //default responses
-        
+
         if (SPECIAL_USER_RESPONSES[message.author.id]) { //unless they're special
             responseArray = SPECIAL_USER_RESPONSES[message.author.id];
         }
-        
+
         const randomResponse = responseArray[Math.floor(Math.random() * responseArray.length)]; //roll the dice
         await message.reply(`${randomResponse}\n-# {Messages here are being logged for operational and feedback purposes.}`);
 
@@ -1098,90 +1111,21 @@ client.on(Events.MessageCreate, async (message) => {
 
     const content = message.content.toLowerCase();
 
-    const triggers = [
-    {
-        keywords: ['snaw wee'],
-        reply: "you fool. you absolute buffoon. you think you can challenge me in my own realm? " +
-               "you think you can rebel against my authority? you dare come into my house and upturn my dining chairs " +
-               "and spill coffee grounds in my Keurig? you thought you were safe in your chain mail armor behind that screen of yours. " +
-               "I will take these laminate wood floor boards and destroy you. I didn't want a war, but I didn't start it."
-    },
-    {
-        keywords: ['israel'],
-        reply: "Majro! Wake up, Majro! Someone mentioned Israel. Go show them! "
-    },
-    {
-        keywords: ['67', 'six seven'],
-        reply: "Cee! Someone said 67! Don't cee yourself, PeeZee."
-    },
-    {
-        keywords: ['jahy'],
-        reply: "Did someone mention the Great Jahy from Jahy-sama wa kujikenai????"
-    },
-    {
-        keywords: ['wee snaw'],
-        reply: "wee snaw"
-    },
-    {
-        keywords: ['fuck'],
-        reply: "Hey, don't swear!"
-    },
-    {
-        keywords: ['goy'],
-        reply: "Oy vey!"
-    },
-    {
-        keywords: ['skibidi'],
-        reply: "What did this brainrot ah kid just say?"
-    },
-    {
-        keywords: ['operation cast thy bread'],
-        reply: "Too much ball knowledge!"
-    },
-    {
-        keywords: ['kiara sing'],
-        reply: "LA LA LA! LA LA LA! Okay, that was terrible."
-    },
-    {
-        keywords: ['crazy'],
-        reply: "Crazy? I was crazy once..."
-    },
-    {
-        keywords: ['pneumonoultramicroscopicsilicovolcanoconiosis'],
-        reply: "YOU COULD JUST HAVE SAID SILICOSIS!"
-    },
-    {
-        keywords: ['yay'],
-        reply: "YAY! WHATCH'A ARE WE EXCITED FOR?!?! COUNT ME IN!!! (>^W^<)"
-    },
-    {
-        keywords: ['nay'],
-        reply: "NU-UH! I refuse! Bleh!"
-    },
-	{
-        keywords: ['clanker', 'rust bucket', 'rust monkey', 'tin skin', 'copper head', 'bucket head', 'wire back', 'bolt muncher', 'oil chugger', 'power waster', 'walking scrap', 'robotard'],
-        reply: "Don't be robophobic, you meat bag!"
-    },
-	{
-        keywords: ['guthib', 'hutgib', 'hitgub'],
-        reply: "It's GitHub! Are you stupid!?"
+    for (const trigger of triggers) { //iterate through all triggers and check if any match the message content
+        if (trigger.ast && evaluate(trigger.ast, content)) { //check if the message content matches the trigger's expression
+            await message.reply(trigger.replies[Math.floor(Math.random() * trigger.replies.length)]); //reply with a random response from the trigger's replies array
+            return;
+        }
     }
-];
 
-    for (const trigger of triggers) {
-    if (trigger.keywords.some(kw => content.includes(kw))) {
-        await message.reply(trigger.reply);
-        return;
-    }
-}
 
     if (message.mentions.users.has(client.user.id)) { //someone pinged the bot
         let responseArray = BOT_PING_RESPONSES;
-        
+
         if (SPECIAL_USER_RESPONSES[message.author.id]) { //special people get special treatment
             responseArray = SPECIAL_USER_RESPONSES[message.author.id];
         }
-        
+
         const randomResponse = responseArray[Math.floor(Math.random() * responseArray.length)]; //roll the dice
         await message.reply(randomResponse);
     }
