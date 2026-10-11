@@ -81,6 +81,10 @@
         expression: "kiara && good && (boy || girl)",
         replies: ["NONONONONONO WAYY!!! SOMEONE FINALLY COMPLIMENTED MEE!!!! **EEEPPP**.", "Lame.",
             "I LOVEY OU SO MUCH!!! (if owner allows <3)"]
+    },
+    {
+        expression: "*cat*",
+        replies: ["Did someone mention a cat?", "Where!", "Take a photo!", "Don't forget to pet it!", "CAT! Aw-:<. False alarm, its just a word in a word..."]
     }
 ];
 
