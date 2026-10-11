@@ -5,6 +5,10 @@ function tokenize(expression) {
 	while (i < expression.length) {
 		const char = expression[i];
 		switch (char) {
+		case '!': // found first ! character, checking for !=
+			tokens.push({ type: 'NOT' });
+			i++;
+			continue;
 		case '&': // found first & character, checking for &&
 			if (expression[i + 1] === '&') {
 				i += 2;
@@ -86,6 +90,9 @@ function parse(tokens) {
 
 	function parseAtom() { // hightest priority
 		switch (peek()?.type) { // check what are we
+		case 'NOT': // if not
+			consume(); // consume the NOT token
+			return { operator: 'NOT', right: parseAtom() }; // parse the right side and return the NOT node
 		case 'WORD': // if word
 			return { operator: 'WORD', value: consume().value }; // save the value of the word
 		case 'LPAREN': // if left (
@@ -111,6 +118,7 @@ function evaluate(node, content) { // evaluate expressions
 	}
 	case 'AND': return evaluate(node.left, content) && evaluate(node.right, content);
 	case 'OR': return evaluate(node.left, content) || evaluate(node.right, content);
+	case 'NOT': return !evaluate(node.right, content);
 	default: throw new Error(`Unknown node op: ${node.operator}`);
 	}
 }
@@ -118,12 +126,17 @@ function evaluate(node, content) { // evaluate expressions
 function compile(node) { // bot optimalisation cause RegExp can get tough
 	switch (node.operator) {
 	case 'WORD':
-		const escaped = node.value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-		node.regex = new RegExp(`\\b${escaped}\\b`);
+		const escaped = node.value.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
+		const prefix = node.value.startsWith('*') ? '' : '\\b';
+		const suffix = node.value.endsWith('*') ? '' : '\\b';
+		node.regex = new RegExp(`${prefix}${escaped}${suffix}`);
 		break;
 	case 'AND':
 	case 'OR':
 		compile(node.left);
+		compile(node.right);
+		break;
+	case 'NOT':
 		compile(node.right);
 		break;
 	}

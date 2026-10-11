@@ -1,7 +1,7 @@
 
     /* Used for discord bot message trigger
         {
-            expression: "some expression using ||, &&, and parentheses for grouping",
+            expression: "some expression using ||, &&, and parentheses for grouping, ! for negation and *cat, *cat*, cat*",
             replies: ["This is an example reply."] -> triggers if any of the above conditions are met
         }
     */
@@ -80,8 +80,7 @@
     {
         expression: "kiara && good && (boy || girl)",
         replies: ["NONONONONONO WAYY!!! SOMEONE FINALLY COMPLIMENTED MEE!!!! **EEEPPP**.", "Lame.",
-            "I LOVEY OU SO MUCH!!! (if owner allows)"
-        ]
+            "I LOVEY OU SO MUCH!!! (if owner allows <3)"]
     }
 ];
 
