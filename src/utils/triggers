@@ -85,6 +85,10 @@
     {
         expression: "*cat*",
         replies: ["Did someone mention a cat?", "Where!", "Take a photo!", "Don't forget to pet it!", "CAT! Aw-:<. False alarm, its just a word in a word..."]
+    },
+    {
+        expression: "what && kiara",
+        replies: ["Yes", "No", "Idk", "You should ask my owner", "Why are you asking me???", "Maybe", "I hope not", "Mhm", "I don't think so", "I miss my owner...", "I'd rather not answer that", "Gosh you are weird", "Yeah, definetly no", "OMG YES", "I'm calling the police", "WHAT", "Hmmmm...", "Hmpf!", "*slowly backs away*"]
     }
 ];
 
