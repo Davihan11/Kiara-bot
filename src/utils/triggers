@@ -83,12 +83,12 @@
             "I LOVEY OU SO MUCH!!! (if owner allows <3)"]
     },
     {
-        expression: "*cat*",
-        replies: ["CAT! Aw-:<. False alarm, its just a word in a word..."]
-    },
-    {
         expression: "cat || cats",
         replies: ["Did someone mention a cat?", "Where!", "Take a photo!", "Don't forget to pet it!"]
+    },
+    {
+        expression: "*cat*",
+        replies: ["CAT! Aw-:<. False alarm, its just a word in a word..."]
     },
     {
         expression: "kiara && (what || why || how || when)",
