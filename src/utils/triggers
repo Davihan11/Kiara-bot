@@ -30,8 +30,12 @@
         replies: ["wee snaw"]
     },
     {
-        expression: "fuck",
+        expression: "'arsehole' || 'asshat' || 'asshole' || 'assmunch' || 'bastard' || 'big black cock' || 'bitch' || 'bullshit' || 'cocksucker' || 'crap' || 'cunt' || 'dickhead' || 'dumbass' || 'fuck' || 'fucking' || 'fucked' || 'fucker' || 'shit' || 'shut up' || 'whore'",
         replies: ["Hey, don't swear!"]
+    },
+	{
+        expression: "fuck && shit",
+        replies: ["Calm down, Tourette-tard!"]
     },
     {
         expression: "goy",
@@ -93,6 +97,10 @@
     {
         expression: "kiara && (what || why || how || when)",
         replies: ["Yes", "No", "Idk", "You should ask my owner", "Why are you asking me???", "Maybe", "I hope not", "Mhm", "I don't think so", "I miss my owner...", "I'd rather not answer that", "Gosh you are weird", "Yeah, definetly no", "OMG YES", "I'm calling the police", "WHAT", "Hmmmm...", "Hmpf!", "*slowly backs away*"]
+    },
+	{
+        expression: "job",
+        replies: ["AH! You scared me. Please, censore that triggering word."]
     }
 ];
 
