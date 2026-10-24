@@ -30,7 +30,7 @@
         replies: ["wee snaw"]
     },
     {
-        expression: "'arsehole' || 'asshat' || 'asshole' || 'assmunch' || 'bastard' || 'big black cock' || 'bitch' || 'bullshit' || 'cocksucker' || 'crap' || 'cunt' || 'dickhead' || 'dumbass' || 'fuck' || 'fucking' || 'fucked' || 'fucker' || 'shit' || 'shut up' || 'whore'",
+        expression: "arse* || ass* || bastard || bitch || bullshit || crap || cunt || dumbass || fuck* || shit || shut up",
         replies: ["Hey, don't swear!"]
     },
 	{
@@ -98,9 +98,13 @@
         expression: "kiara && (what || why || how || when)",
         replies: ["Yes", "No", "Idk", "You should ask my owner", "Why are you asking me???", "Maybe", "I hope not", "Mhm", "I don't think so", "I miss my owner...", "I'd rather not answer that", "Gosh you are weird", "Yeah, definetly no", "OMG YES", "I'm calling the police", "WHAT", "Hmmmm...", "Hmpf!", "*slowly backs away*"]
     },
-	{
+	  {
         expression: "job",
         replies: ["AH! You scared me. Please, censore that triggering word."]
+    },
+    {
+        expression: "kys",
+        replies: ["awwww who are we kissinggg :333", "Awww, who are we blushing for! :3", "Wowie! A kiss! WHO is the lucky one! ^w^ :3"]
     }
 ];
 
