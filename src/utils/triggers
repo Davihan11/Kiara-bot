@@ -30,7 +30,7 @@
         replies: ["wee snaw"]
     },
     {
-        expression: "fuck",
+        expression: "fuck*",
         replies: ["Hey, don't swear!"]
     },
     {
@@ -93,6 +93,10 @@
     {
         expression: "kiara && (what || why || how || when)",
         replies: ["Yes", "No", "Idk", "You should ask my owner", "Why are you asking me???", "Maybe", "I hope not", "Mhm", "I don't think so", "I miss my owner...", "I'd rather not answer that", "Gosh you are weird", "Yeah, definetly no", "OMG YES", "I'm calling the police", "WHAT", "Hmmmm...", "Hmpf!", "*slowly backs away*"]
+    },
+    {
+        expression: "kys",
+        replies: ["awwww who are we kissinggg :333", "Awww, who are we blushing for! :3", "Wowie! A kiss! WHO is the lucky one! ^w^ :3"]
     }
 ];
 
