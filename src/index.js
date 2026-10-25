@@ -1066,6 +1066,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return handleWordleInteraction(interaction, memory, saveMemory); //all the wordle commands live in wordle.js
     }
 
+    if (commandName === 'latex') {
+        return await latex.run(client, interaction);
+    }
+
 });
 
 //MessageCreate fires every time a message shows up anywhere the bot can see

@@ -1,14 +1,14 @@
-import { EmbedBuilder, SlashCommandBuilder } from 'discord.js';
-import mathjax from 'mathjax';
-import sharp from 'sharp';
+const { EmbedBuilder, SlashCommandBuilder } = require('discord.js');
+const mathjax = require('mathjax');
+const sharp = require('sharp');
 
-const jax = await mathjax.init({
+const jaxPromise = mathjax.init({
   loader: {
     load: ['input/tex', 'output/svg'],
   },
 });
 
-export const command = new SlashCommandBuilder()
+const command = new SlashCommandBuilder()
   .setName('latex')
   .setDescription('Render latex code to an image')
   .addStringOption(option => {
@@ -34,12 +34,13 @@ export const command = new SlashCommandBuilder()
       .setMaxValue(5);
   });
 
-export const run = async (c, interaction) => {
+const run = async (c, interaction) => {
   const timeStart = new Date().getTime();
   const { value: code } = interaction.options.get('code', true);
   const { value: brightness = 0.8 } = interaction.options.get('brightness') || {};
   const { value: scale = 2 } = interaction.options.get('scale') || {};
 
+  const jax = await jaxPromise;
   const svg = jax.startup.adaptor.innerHTML(
     await jax.tex2svgPromise(
       `\\color{white} \\begin{aligned} ${code} \\end{aligned}`,
@@ -69,3 +70,5 @@ export const run = async (c, interaction) => {
   });
   console.log(`Took ${new Date().getTime() - timeStart}ms`);
 };
+
+module.exports = { command, run };
