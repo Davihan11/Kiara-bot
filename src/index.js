@@ -11,6 +11,7 @@ const { setupWordle, handleWordleInteraction, setupWordleCommand, wordleStatsCom
 const { tokenize, parse, evaluate, compile } = require('./utils/parser');
 const triggers = require('./utils/triggers');
 const latex = require('./utils/latex')
+const { getCalculusQuestion, checkAnswer, recordAttempt, calculusQuestions } = require('../data/calculus-data');
 
 //const = a value you can't reassign (these come from .env, cause they're secrets)
 const {
@@ -160,7 +161,8 @@ function loadMemory() {
         cat: { channelId: CAT_CHANNEL_ID, schedule: '0 20 * * *' }, //cats at 8 PM
         qotd: { channelId: QOTD_CHANNEL_ID, schedule: '0 14 * * *', lastChannelId: null, lastMessageId: null }, //questions at 2 PM
         quote: { channelId: QUOTE_CHANNEL_ID, schedule: '0 2 * * *' }, //quotes at 2 AM
-        wordle: { channelId: null }
+        wordle: { channelId: null },
+        calculus: { channelId: null, index: 0 }
     };
 }
 
@@ -223,7 +225,8 @@ const config = {
     qotdLastChannelId: memory.qotd.lastChannelId || null,
     qotdLastMessageId: memory.qotd.lastMessageId || null,
     channelIdQuote: memory.quote.channelId || null,
-    scheduleQuote: memory.quote.schedule || null
+    scheduleQuote: memory.quote.schedule || null,
+    calculus: { channelId: (memory.calculus && memory.calculus.channelId) || null }
 };
 
 //all the /commands are built with this "builder" pattern: name, description, options
@@ -299,6 +302,15 @@ const scheduleCommandQuote = new SlashCommandBuilder() //same idea, but for quot
            .setRequired(true)
     );
 
+const setupCalculusQOTD = new SlashCommandBuilder()
+    .setName('setupcalculus')
+    .setDescription('Set the daily calculus channel (owner only)')
+    .addChannelOption(opt =>
+        opt.setName('channel')
+           .setDescription('Channel to post questions in')
+           .setRequired(true)
+    );
+
 const testCommand = new SlashCommandBuilder() //sends a test cat post, just for checking the bot works
     .setName('test')
     .setDescription('Test command for bot responses (owner only)');
@@ -307,12 +319,27 @@ const privacyCommand = new SlashCommandBuilder() //explains what data the bot st
     .setName('privacy')
     .setDescription('View how your data is handled and how to request deletion');
 
+const answerCommand = new SlashCommandBuilder() //submit an answer to a calculus question
+    .setName('answer')
+    .setDescription('Submit an answer to a calculus question')
+    .addStringOption(opt =>
+        opt.setName('answer')
+           .setDescription('Your answer, e.g. 5;2')
+           .setRequired(true)
+    )
+    .addIntegerOption(opt =>
+        opt.setName('question')
+           .setDescription('The question number (defaults to the current one)')
+           .setRequired(false)
+    );
+
 //the cron jobs that are ACTUALLY running right now
 //(config holds what SHOULD run, these hold what IS running - so we can stop and replace them)
 let currentCronJobFox = null;
 let currentCronJobCat = null;
 let currentCronJobQOTD = null;
 let currentCronJobQuote = null;
+let currentCronJobCalculus = null;
 
 //fetches a random fox photo from the Unsplash API
 //async because network requests take time (async is what lets us use AWAIT)
@@ -404,6 +431,53 @@ async function triggerCatPost() {
     } catch (err) {
         console.error('Error posting cat image:', err.message);
     }
+}
+
+function ordinalSuffix(n) {
+    const s = ['th', 'st', 'nd', 'rd'], v = n % 100;
+    return s[(v - 20) % 10] || s[v] || s[0];
+}
+
+function setScheduleCalculus() { //random hour in a day
+    if (currentCronJobCalculus) { //stop the old job before rescheduling
+        currentCronJobCalculus.stop();
+    }
+
+    const hour = Math.floor(Math.random() * 24);
+    const minute = Math.floor(Math.random() * 60)
+    currentCronJobCalculus = cron.schedule(`${minute} ${hour} * * *`, triggerCalculusPost, {
+        scheduled: true,
+        timezone: 'Europe/Bratislava'
+    });
+
+    console.log(`Calculus schedule updated to daily at ${hour}:${minute} (Europe/Bratislava)`);
+}
+
+async function triggerCalculusPost() {
+    if (!config.calculus.channelId){
+        console.warn('Calculus skipped: No channel set!')
+        return;
+    }
+
+    const data = await getCalculusQuestion(memory, saveMemory);
+    if (!data) return;
+
+    try {
+        const channel = await client.channels.fetch(config.calculus.channelId); //get the actual channel object (another network request, hence AWAIT)
+        if (!channel) return console.error('Target calculus channel not found.');
+
+        const content = `## Calculus jumpscare #${data.number}!\n **Information**: ${data.information}\n-# Stuck? Ask <@${QOTD_FEEDBACK_USER_ID}>!`;
+
+        await channel.send({ //send it (network request again)
+            content,
+            files: data.files
+        });
+        console.log(`Calculus posted successfully to ${channel.name} (${channel.id})`);
+    } catch (err) {
+        console.error('Error posting Calculus:', err.message);
+    }
+
+    setScheduleCalculus(); //re-randomize the hour for the next day
 }
 
 //sets a new cron schedule for fox posts
@@ -801,7 +875,7 @@ client.once(Events.ClientReady, async (readyClient) => {
                 scheduleCommandCat.toJSON(), setupCommandQOTD.toJSON(), scheduleCommandQOTD.toJSON(), 
                 setupCommandQuote.toJSON(), scheduleCommandQuote.toJSON(), setupWordleCommand.toJSON(), 
                 wordleStatsCommand.toJSON(), wordleScanCommand.toJSON(), wordleSyncCommand.toJSON(), 
-                wordleHideCommand.toJSON(), latex.command.toJSON()] }
+                wordleHideCommand.toJSON(), latex.command.toJSON(), setupCalculusQOTD.toJSON(), answerCommand.toJSON()] }
         );
         console.log('Slash commands registered to guild instantly!');
     } catch (err) {
@@ -845,7 +919,8 @@ client.once(Events.ClientReady, async (readyClient) => {
     if (config.scheduleQuote) {
         setScheduleQuote(config.scheduleQuote);
     }
-});
+    setScheduleCalculus(); //random hour each day
+}); 
 
 //GuildCreate fires when someone invites the bot to a server
 client.on(Events.GuildCreate, async (guild) => {
@@ -867,7 +942,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     const isOwner = ownerIds && ownerIds.split(',').map(id => id.trim()).includes(String(interaction.user.id)); //are they the boss?
     const { commandName } = interaction;
 
-    const PUBLIC_COMMANDS = ['privacy', 'wordlestats']; //commands EVERYONE can use
+    const PUBLIC_COMMANDS = ['privacy', 'wordlestats', 'answer']; //commands EVERYONE can use
 
     if (commandName === 'privacy') { //the privacy notice text
         const contactMention = specialUserIds[0] ? `<@${specialUserIds[0]}>` : 'the bot owner';
@@ -988,6 +1063,20 @@ client.on(Events.InteractionCreate, async (interaction) => {
         });
     }
 
+    if (commandName === 'setupcalculus') { //save which channel calculus questions go to
+        const channel = interaction.options.getChannel('channel');
+        config.calculus.channelId = channel.id;
+        if (!memory.calculus) memory.calculus = { channelId: null, index: 0 };
+        memory.calculus.channelId = channel.id;
+        saveMemory(memory);
+
+        console.log(`Calculus channel configured to: ${channel.name} (${channel.id})`);
+        return interaction.reply({
+            content: `Got it! Daily calculus questions will now go to ${channel}`,
+            ephemeral: true
+        });
+    }
+
     if (commandName === 'scheduleqotd') { //set the QOTD posting cron
         const cronExpression = interaction.options.getString('cron').trim();
 
@@ -1050,16 +1139,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
 
     if (commandName === 'test') { //send a test cat post to check everything works
-        const data = await fetchCatData();
-        const content = `## GOAT OF THE EVENING\n-# Author: ${data.author}\n-# Source: ${data.source}\n**Description**: *${data.description}*`;
-        await interaction.channel.send({
-            content,
-            files: [{ attachment: data.imageUrl, name: 'cat.jpg' }]
-        });
-        return interaction.reply({
-            content: 'Test post sent!',
-            ephemeral: true
-        });
+        try {
+            await triggerCalculusPost(); // fire a test calculus post
+        } catch (err) {
+            console.error('Test calculus failed:', err);
+        }
+        return;
     }
 
     if (commandName === 'setupwordle' || commandName === 'wordlestats' || commandName === 'wordlescan' || commandName === 'wordlesync' || commandName === 'wordlehide') {
@@ -1067,12 +1152,53 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
 
     if (commandName === 'latex') {
+        await interaction.deferReply(); //rendering can take a few seconds
         try {
             return await latex.run(client, interaction);
         } catch (err) {
             console.error('LaTeX command failed:', err);
-            const reply = interaction.deferred || interaction.replied ? interaction.editReply.bind(interaction) : interaction.reply.bind(interaction);
-            return reply({ content: `Failed to render: ${err.message}` });
+            return interaction.editReply({ content: `Failed to render: ${err.message}` });
+        }
+    }
+
+    if (commandName === 'answer') { //submit an answer to a calculus question
+        const currentNumber = ((memory.calculus && typeof memory.calculus.index === 'number' ? memory.calculus.index : 1) || calculusQuestions.length); //index was already incremented for the next post
+        const questionNumber = interaction.options.getInteger('question') ?? currentNumber;
+        const submitted = interaction.options.getString('answer');
+
+        if (questionNumber < 1 || questionNumber > calculusQuestions.length) {
+            return interaction.reply({
+                content: `Invalid question number. There are ${calculusQuestions.length} questions.`,
+                ephemeral: true
+            });
+        }
+
+        const question = calculusQuestions[questionNumber - 1];
+
+        try {
+            const isCorrect = checkAnswer(submitted, question.answer || []);
+            const existing = (question.attempts || []).find(a => a.userId === interaction.user.id);
+            const alreadySolved = existing && existing.correct !== null;
+
+            const record = recordAttempt(memory, saveMemory, questionNumber, interaction.user.id, submitted, isCorrect);
+
+            if (isCorrect && alreadySolved) { //solved before — count the attempt but don't announce again
+                return interaction.reply({ content: 'You already got this one, silly! :3 And your current answer matches the correct one!', ephemeral: true });
+            }
+
+            if (isCorrect) {
+                await interaction.reply({ content: 'Correct!', ephemeral: true });
+                await interaction.channel.send({
+                    content: `<@${interaction.user.id}> solved question #${questionNumber} on their ${record.correct}${ordinalSuffix(record.correct)} attempt!`
+                });
+                return;
+            }
+
+            console.log(`[calculus] ${interaction.user.tag} answered question #${questionNumber} incorrectly (attempt ${record.attemptCount.length}): ${submitted}`);
+            return interaction.reply({ content: `Not correct :<. That was attempt #${record.attemptCount.length}. Try again!`, ephemeral: true });
+        } catch (err) {
+            console.error('Answer check failed:', err);
+            return interaction.reply({ content: `Failed to check answer: ${err.message}`, ephemeral: true });
         }
     }
 

@@ -59,7 +59,7 @@ const run = async (c, interaction) => {
     .png({ effort: 1 })
     .toBuffer();
 
-  await interaction.reply({
+  await interaction.editReply({
     embeds: [new EmbedBuilder().setImage(`attachment://rendered.png`)],
     files: [
       {
@@ -71,4 +71,30 @@ const run = async (c, interaction) => {
   console.log(`Took ${new Date().getTime() - timeStart}ms`);
 };
 
-module.exports = { command, run };
+const run_notEmbed = async (code, brightness = 1, scale = 2) => {
+  const timeStart = new Date().getTime();
+
+  const jax = await jaxPromise;
+  const svg = jax.startup.adaptor.innerHTML(
+    await jax.tex2svgPromise(
+      `\\color{white} \\begin{aligned} ${code} \\end{aligned}`,
+      {
+        display: true,
+      },
+    ),
+  );
+  const obj = sharp(Buffer.from(svg));
+
+  const png = await obj
+    .resize({
+      height: Math.ceil(((await obj.metadata()).height || 16) * scale),
+    })
+    .modulate({ brightness })
+    .png({ effort: 1 })
+    .toBuffer();
+
+  console.log(`Took ${new Date().getTime() - timeStart}ms`);
+  return png;
+};
+
+module.exports = { command, run, run_notEmbed };
