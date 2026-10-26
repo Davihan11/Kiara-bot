@@ -1067,7 +1067,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
 
     if (commandName === 'latex') {
-        return await latex.run(client, interaction);
+        try {
+            return await latex.run(client, interaction);
+        } catch (err) {
+            console.error('LaTeX command failed:', err);
+            const reply = interaction.deferred || interaction.replied ? interaction.editReply.bind(interaction) : interaction.reply.bind(interaction);
+            return reply({ content: `Failed to render: ${err.message}` });
+        }
     }
 
 });

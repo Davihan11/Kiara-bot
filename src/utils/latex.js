@@ -59,7 +59,7 @@ const run = async (c, interaction) => {
     .png({ effort: 1 })
     .toBuffer();
 
-  await interaction.editReply({
+  await interaction.reply({
     embeds: [new EmbedBuilder().setImage(`attachment://rendered.png`)],
     files: [
       {
