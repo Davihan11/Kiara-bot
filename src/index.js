@@ -438,19 +438,27 @@ function ordinalSuffix(n) {
     return s[(v - 20) % 10] || s[v] || s[0];
 }
 
-function setScheduleCalculus() { //random hour in a day
+function setScheduleCalculus() { //random time tomorrow
     if (currentCronJobCalculus) { //stop the old job before rescheduling
         currentCronJobCalculus.stop();
     }
 
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(now.getDate() + 1);
+
     const hour = Math.floor(Math.random() * 24);
-    const minute = Math.floor(Math.random() * 60)
-    currentCronJobCalculus = cron.schedule(`${minute} ${hour} * * *`, triggerCalculusPost, {
+    const minute = Math.floor(Math.random() * 60);
+
+    //one-shot cron: specific date so it fires exactly once, then reschedules itself
+    const day = tomorrow.getDate();
+    const month = tomorrow.getMonth() + 1; //cron months are 1-12
+    currentCronJobCalculus = cron.schedule(`${minute} ${hour} ${day} ${month} *`, triggerCalculusPost, {
         scheduled: true,
         timezone: 'Europe/Bratislava'
     });
 
-    console.log(`Calculus schedule updated to daily at ${hour}:${minute} (Europe/Bratislava)`);
+    console.log(`Calculus scheduled for tomorrow at ${hour}:${String(minute).padStart(2, '0')} (Europe/Bratislava)`);
 }
 
 async function triggerCalculusPost() {
