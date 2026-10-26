@@ -333,6 +333,15 @@ const answerCommand = new SlashCommandBuilder() //submit an answer to a calculus
            .setRequired(false)
     );
 
+const scheduleCalculusCommand = new SlashCommandBuilder() //set the calculus posting schedule
+    .setName('schedulecalculus')
+    .setDescription('Set daily calculus post schedule (owner only)')
+    .addStringOption(opt =>
+        opt.setName('cron')
+           .setDescription('Cron format: MIN HOUR DAY-OF-MONTH MONTH DAY-OF-WEEK')
+           .setRequired(true)
+    );
+
 //the cron jobs that are ACTUALLY running right now
 //(config holds what SHOULD run, these hold what IS running - so we can stop and replace them)
 let currentCronJobFox = null;
@@ -438,27 +447,32 @@ function ordinalSuffix(n) {
     return s[(v - 20) % 10] || s[v] || s[0];
 }
 
-function setScheduleCalculus() { //random time tomorrow
+function setScheduleCalculus(cronExpression) { //random time tomorrow, or custom cron
     if (currentCronJobCalculus) { //stop the old job before rescheduling
         currentCronJobCalculus.stop();
     }
 
-    const now = new Date();
-    const tomorrow = new Date(now);
-    tomorrow.setDate(now.getDate() + 1);
+    let expression;
+    if (cronExpression) { //owner set a custom schedule
+        expression = cronExpression;
+    } else { //default: random time tomorrow
+        const now = new Date();
+        const tomorrow = new Date(now);
+        tomorrow.setDate(now.getDate() + 1);
 
-    const hour = Math.floor(Math.random() * 24);
-    const minute = Math.floor(Math.random() * 60);
+        const hour = Math.floor(Math.random() * 24);
+        const minute = Math.floor(Math.random() * 60);
+        const day = tomorrow.getDate();
+        const month = tomorrow.getMonth() + 1; //cron months are 1-12
+        expression = `${minute} ${hour} ${day} ${month} *`;
+    }
 
-    //one-shot cron: specific date so it fires exactly once, then reschedules itself
-    const day = tomorrow.getDate();
-    const month = tomorrow.getMonth() + 1; //cron months are 1-12
-    currentCronJobCalculus = cron.schedule(`${minute} ${hour} ${day} ${month} *`, triggerCalculusPost, {
+    currentCronJobCalculus = cron.schedule(expression, triggerCalculusPost, {
         scheduled: true,
         timezone: 'Europe/Bratislava'
     });
 
-    console.log(`Calculus scheduled for tomorrow at ${hour}:${String(minute).padStart(2, '0')} (Europe/Bratislava)`);
+    console.log(`Calculus schedule updated to: ${expression} (Europe/Bratislava)`);
 }
 
 async function triggerCalculusPost() {
@@ -883,7 +897,7 @@ client.once(Events.ClientReady, async (readyClient) => {
                 scheduleCommandCat.toJSON(), setupCommandQOTD.toJSON(), scheduleCommandQOTD.toJSON(), 
                 setupCommandQuote.toJSON(), scheduleCommandQuote.toJSON(), setupWordleCommand.toJSON(), 
                 wordleStatsCommand.toJSON(), wordleScanCommand.toJSON(), wordleSyncCommand.toJSON(), 
-                wordleHideCommand.toJSON(), latex.command.toJSON(), setupCalculusQOTD.toJSON(), answerCommand.toJSON()] }
+                wordleHideCommand.toJSON(), latex.command.toJSON(), setupCalculusQOTD.toJSON(), answerCommand.toJSON(), scheduleCalculusCommand.toJSON()] }
         );
         console.log('Slash commands registered to guild instantly!');
     } catch (err) {
@@ -1153,6 +1167,30 @@ client.on(Events.InteractionCreate, async (interaction) => {
             console.error('Test calculus failed:', err);
         }
         return;
+    }
+
+    if (commandName === 'schedulecalculus') { //set the calculus posting cron
+        const cronExpression = interaction.options.getString('cron').trim();
+
+        if (!cron.validate(cronExpression)) {
+            return interaction.reply({
+                content: 'Invalid cron format. Example: `0 12 * * *` (12:00 PM daily).',
+                ephemeral: true
+            });
+        }
+
+        try {
+            setScheduleCalculus(cronExpression);
+            return interaction.reply({
+                content: `Calculus schedule updated! Next post set for \`${cronExpression}\``,
+                ephemeral: true
+            });
+        } catch (err) {
+            return interaction.reply({
+                content: `Failed to set schedule: ${err.message}`,
+                ephemeral: true
+            });
+        }
     }
 
     if (commandName === 'setupwordle' || commandName === 'wordlestats' || commandName === 'wordlescan' || commandName === 'wordlesync' || commandName === 'wordlehide') {
