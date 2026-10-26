@@ -10,6 +10,7 @@ const { getRandomIcebreaker, getTotalIcebreakers } = require('../data/questions'
 const { setupWordle, handleWordleInteraction, setupWordleCommand, wordleStatsCommand, wordleScanCommand, wordleSyncCommand, wordleHideCommand } = require('./wordle');
 const { tokenize, parse, evaluate, compile } = require('./utils/parser');
 const triggers = require('./utils/triggers');
+const latex = require('./utils/latex')
 
 //const = a value you can't reassign (these come from .env, cause they're secrets)
 const {
@@ -796,14 +797,18 @@ client.once(Events.ClientReady, async (readyClient) => {
     try {
         await rest.put( //register all the main commands in our main server
             Routes.applicationGuildCommands(readyClient.user.id, serverIds[0]), //serverIds[0] = the main server
-            { body: [setupCommandFox.toJSON(), scheduleCommandFox.toJSON(), setupCommandCat.toJSON(), scheduleCommandCat.toJSON(), setupCommandQOTD.toJSON(), scheduleCommandQOTD.toJSON(), setupCommandQuote.toJSON(), scheduleCommandQuote.toJSON(), setupWordleCommand.toJSON(), wordleStatsCommand.toJSON(), wordleScanCommand.toJSON(), wordleSyncCommand.toJSON(), wordleHideCommand.toJSON()] }
+            { body: [setupCommandFox.toJSON(), scheduleCommandFox.toJSON(), setupCommandCat.toJSON(), 
+                scheduleCommandCat.toJSON(), setupCommandQOTD.toJSON(), scheduleCommandQOTD.toJSON(), 
+                setupCommandQuote.toJSON(), scheduleCommandQuote.toJSON(), setupWordleCommand.toJSON(), 
+                wordleStatsCommand.toJSON(), wordleScanCommand.toJSON(), wordleSyncCommand.toJSON(), 
+                wordleHideCommand.toJSON(), latex.command.toJSON()] }
         );
         console.log('Slash commands registered to guild instantly!');
     } catch (err) {
         console.error('Failed to register commands:', err);
     }
 
-    if (serverIds[1]) { //there's a second server in .env -> it only gets the test command
+    if (serverIds[1]) {  //second server
         try {
             await rest.put(
                 Routes.applicationGuildCommands(readyClient.user.id, serverIds[1]),
@@ -1059,6 +1064,16 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
     if (commandName === 'setupwordle' || commandName === 'wordlestats' || commandName === 'wordlescan' || commandName === 'wordlesync' || commandName === 'wordlehide') {
         return handleWordleInteraction(interaction, memory, saveMemory); //all the wordle commands live in wordle.js
+    }
+
+    if (commandName === 'latex') {
+        try {
+            return await latex.run(client, interaction);
+        } catch (err) {
+            console.error('LaTeX command failed:', err);
+            const reply = interaction.deferred || interaction.replied ? interaction.editReply.bind(interaction) : interaction.reply.bind(interaction);
+            return reply({ content: `Failed to render: ${err.message}` });
+        }
     }
 
 });
