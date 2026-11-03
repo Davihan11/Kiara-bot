@@ -29,8 +29,12 @@ const {
     QOTD_CHANNEL_ID,
     QUOTE_CHANNEL_ID,
     EMOTE_BOY,
-    EMOTE_GIRL
+    EMOTE_GIRL,
+    LATEX_FILTER
 } = process.env;
+
+//blocked words for the /latex command (comma separated in .env)
+latex.setFilter(LATEX_FILTER);
 
 //the list of servers the bot is allowed to be in (comma separated in .env)
 const serverIds = SERVER_ID ? SERVER_ID.split(',').map(id => id.trim()) : [];
@@ -481,10 +485,10 @@ async function triggerCalculusPost() {
         return;
     }
 
-    const data = await getCalculusQuestion(memory, saveMemory);
-    if (!data) return;
-
     try {
+        const data = await getCalculusQuestion(memory, saveMemory);
+        if (!data) return;
+
         const channel = await client.channels.fetch(config.calculus.channelId); //get the actual channel object (another network request, hence AWAIT)
         if (!channel) return console.error('Target calculus channel not found.');
 
@@ -964,7 +968,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     const isOwner = ownerIds && ownerIds.split(',').map(id => id.trim()).includes(String(interaction.user.id)); //are they the boss?
     const { commandName } = interaction;
 
-    const PUBLIC_COMMANDS = ['privacy', 'wordlestats', 'answer']; //commands EVERYONE can use
+    const PUBLIC_COMMANDS = ['privacy', 'wordlestats', 'answer', 'latex']; //commands EVERYONE can use
 
     if (commandName === 'privacy') { //the privacy notice text
         const contactMention = specialUserIds[0] ? `<@${specialUserIds[0]}>` : 'the bot owner';

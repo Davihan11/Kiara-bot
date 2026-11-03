@@ -8,6 +8,28 @@ const jaxPromise = mathjax.init({
   },
 });
 
+//words that are not allowed in rendered latex (set from .env via setFilter)
+let blockedWords = [];
+
+const setFilter = (filterEnv) => {
+  blockedWords = (filterEnv || '')
+    .split(',')
+    .map(w => w.trim().toLowerCase())
+    .filter(Boolean);
+};
+
+//strip latex commands/spacing tricks so words can't be hidden"
+const normalize = (code) =>
+  code
+    .toLowerCase()
+    .replace(/\\[a-z]+\*?(\[[^\]]*\])?(\{([^{}]*)\})?/gi, '$3') //keep command args, drop the command
+    .replace(/[^a-z0-9]/g, ''); //drop spaces, braces, symbols
+
+const containsBlockedWord = (code) => {
+  const normalized = normalize(code);
+  return blockedWords.some(word => normalized.includes(word));
+};
+
 const command = new SlashCommandBuilder()
   .setName('latex')
   .setDescription('Render latex code to an image')
@@ -39,6 +61,13 @@ const run = async (c, interaction) => {
   const { value: code } = interaction.options.get('code', true);
   const { value: brightness = 0.8 } = interaction.options.get('brightness') || {};
   const { value: scale = 2 } = interaction.options.get('scale') || {};
+
+  if (containsBlockedWord(code)) {
+    await interaction.editReply({
+      content: 'Input contains a blocked word.',
+    });
+    return;
+  }
 
   const jax = await jaxPromise;
   const svg = jax.startup.adaptor.innerHTML(
@@ -74,6 +103,10 @@ const run = async (c, interaction) => {
 const run_notEmbed = async (code, brightness = 1, scale = 2) => {
   const timeStart = new Date().getTime();
 
+  if (containsBlockedWord(code)) {
+    throw new Error('Input contains a blocked word.');
+  }
+
   const jax = await jaxPromise;
   const svg = jax.startup.adaptor.innerHTML(
     await jax.tex2svgPromise(
@@ -97,4 +130,4 @@ const run_notEmbed = async (code, brightness = 1, scale = 2) => {
   return png;
 };
 
-module.exports = { command, run, run_notEmbed };
+module.exports = { command, run, run_notEmbed, setFilter };
